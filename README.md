@@ -1,2 +1,100 @@
-# sideshift-api-node
+# sideshift-api-node for Node.js
 This package offers a developer-friendly interface to the official SideShift API
+
+## Use Cases
+Good job Human! You've just unlocked the sideshift-api-nodejs module's potential. This package offers a developer-friendly interface to the official SideShift API, enabling seamless cryptocurrency swapping integration into diverse applications including:
+
+- Cryptocurrency Wallets: Enhance your wallet app by allowing users to swap coins directly within the interface.
+
+- Decentralized Exchanges: Create decentralized exchange platforms with real-time coin swapping capabilities.
+
+- Payment Gateways: Offer customers the flexibility to pay in their preferred cryptocurrency and automatically convert it to your desired coin for processing.
+
+
+## Key features
+- Easy Integration: With just a few lines of code to integrate cryptocurrency swapping capabilities into your Node.js applications.
+
+- Wide Coin Support: Access the full spectrum of 237+ coins supported by SideShift, allowing users to swap seamlessly between various cryptocurrencies.
+
+
+## Installation
+This module use Fetch.
+
+Demo Server Dependencies:
+```
+npm install --save express http fs
+```
+Module Dependencies (no need with the built-in fetch in Node.js 18+):
+```
+npm install --save node-fetch // if Node.js version < 18
+```
+
+##  Load module
+```
+const SideshiftAPI = require('./sideshiftAPI.js');
+or import { SideshiftAPI } from './sideshiftAPI.js';
+
+const SIDESHIFT_ID = "Your_shideshift_ID";
+
+const SIDESHIFT_SECRET = "Your_shideshift_secret";
+
+const COMMISSION_RATE = "0.5"; // Min 0 and max 2, set your commission rate from 0 to 2%. Default is 0.5
+
+const RETRIES =  {
+  maxRetries: 5,
+  retryDelay: 2000,
+  retryBackoff: 2,
+  retryCappedDelay: 10000
+};
+
+const sideshift = new SideshiftAPI({
+  secret: SIDESHIFT_SECRET,
+  id: SIDESHIFT_ID,
+  commisssionRate: COMMISSION_RATE, // Optional
+  verbose: true, // Optional
+  retries: RETRIES // Optional retries settings
+});
+```
+
+
+## Verbose mode
+When verbose mode is enabled, all requests are logged with:
+- URL and HTTP method
+- Request headers
+- Request body (stringified)
+- Full request/response details for troubleshooting
+- API key is hidden from the log
+
+
+**Log example**
+```
+=== DEBUG REQUEST ===
+URL: https://sideshift.ai/api/v2/cancel-order
+Method: POST
+Headers: {
+  "Content-Type": "application/json",
+  "x-sideshift-secret": '[FILTERED]'
+}
+Body: {"orderId":"4f72a1852d8b2c10537b"}
+=====================
+```
+
+
+## Error Handling
+When encountering errors, the module returns an error object with the following format:
+
+```
+{
+  "status": 400,
+  "statusText": "Bad Request",
+  "url": "https://sideshift.ai/api/v2/cancel-order",
+  "options": {"Fetch options"}
+  "error": {
+    "message": "Order already expired"
+  },
+  "stack": "error stack" // if available
+}
+```
+
+## Server call and response
+For detailed API call and response examples, see [SERVER_RESPONSES.md](SERVER_RESPONSES.md)
