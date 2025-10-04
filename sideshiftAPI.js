@@ -435,11 +435,14 @@ class SideshiftAPI {
      * @throws {Error} If the value is invalid
      */
     _validateNumber(value, fieldName, source) {
+        if (value === null) {
+            return value;
+        }
         if (value !== null && (typeof value !== 'number' || value < 0 || !Number.isFinite(value))) {
             const error = this._errorMsg(fieldName, source);
             throw new Error(`${error}`);
         }
-        return value;
+        return value.toFixed(8);
     }
 
     /**
