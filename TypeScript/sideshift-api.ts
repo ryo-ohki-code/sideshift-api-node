@@ -15,7 +15,7 @@ interface SideshiftAPIOptions {
     };
 }
 
-export class SideshiftAPI{
+export class SideshiftAPI {
     private SIDESHIFT_SECRET: string;
     private SIDESHIFT_ID: string;
     private COMMISSION_RATE: string;
@@ -721,6 +721,7 @@ export class SideshiftAPI{
      * @param {string} [options.settleMemo] - Settle memo (optional)
      * @param {string} [options.refundAddress] - Refund address (optional)
      * @param {string} [options.refundMemo] - Refund memo (optional)
+     * @param {string} [options.externalId] - Integrations own ID (optional)
      * @param {string} [userIp] - User IP address (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
@@ -730,6 +731,7 @@ export class SideshiftAPI{
         settleMemo,
         refundAddress,
         refundMemo,
+        externalId,
         userIp
     }: {
         settleAddress: string;
@@ -737,6 +739,7 @@ export class SideshiftAPI{
         settleMemo?: string;
         refundAddress?: string;
         refundMemo?: string;
+        externalId?: string; // <-- Added this line
         userIp?: string;
     }): Promise<object> {
         this._validateString(settleAddress, "settleAddress", "createFixedShift");
@@ -744,6 +747,7 @@ export class SideshiftAPI{
         this._validateOptinalString(settleMemo, "settleMemo", "createFixedShift");
         this._validateOptinalString(refundAddress, "refundAddress", "createFixedShift");
         this._validateOptinalString(refundMemo, "refundMemo", "createFixedShift");
+        this._validateOptinalString(externalId, "externalId", "createFixedShift");
         this._validateOptinalString(userIp, "userIp", "createFixedShift");
 
         const fixedShiftBody = {
@@ -753,6 +757,7 @@ export class SideshiftAPI{
             ...(settleMemo && { settleMemo }),
             ...(refundAddress && { refundAddress }),
             ...(refundMemo && { refundMemo }),
+            ...(externalId && { externalId }),
         };
 
         return this._request(`${this.BASE_URL}/shifts/fixed`, {
@@ -773,6 +778,7 @@ export class SideshiftAPI{
      * @param {string} [options.refundAddress] - Refund address (optional)
      * @param {string} [options.settleMemo] - Settle memo (optional)
      * @param {string} [options.refundMemo] - Refund memo (optional)
+     * @param {string} [options.externalId] - Integrations own ID (optional)
      * @param {string} [userIp] - User IP address (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
@@ -785,6 +791,7 @@ export class SideshiftAPI{
         refundAddress,
         settleMemo,
         refundMemo,
+        externalId,
         userIp
     }: {
         settleAddress: string;
@@ -795,6 +802,7 @@ export class SideshiftAPI{
         refundAddress?: string;
         settleMemo?: string;
         refundMemo?: string;
+        externalId?: string; // <-- Added this line
         userIp?: string;
     }): Promise<object> {
         this._validateString(settleAddress, "settleAddress", "createVariableShift");
@@ -805,6 +813,7 @@ export class SideshiftAPI{
         this._validateOptinalString(refundAddress, "refundAddress", "createVariableShift");
         this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
         this._validateOptinalString(refundMemo, "refundMemo", "createVariableShift");
+        this._validateOptinalString(externalId, "externalId", "createVariableShift");
         this._validateOptinalString(userIp, "userIp", "createVariableShift");
 
         const variableShiftBody = {
@@ -817,6 +826,7 @@ export class SideshiftAPI{
             ...(settleMemo && { settleMemo }),
             ...(refundAddress && { refundAddress }),
             ...(refundMemo && { refundMemo }),
+            ...(externalId && { externalId }),
         };
 
         return this._request(`${this.BASE_URL}/shifts/variable`, {
@@ -825,6 +835,7 @@ export class SideshiftAPI{
             method: "POST"
         });
     }
+
 
     /**
      * Set refund address for a shift
