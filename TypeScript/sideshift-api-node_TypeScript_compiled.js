@@ -724,21 +724,23 @@ var SideshiftAPI = /** @class */ (function () {
      * @param {string} [options.settleMemo] - Settle memo (optional)
      * @param {string} [options.refundAddress] - Refund address (optional)
      * @param {string} [options.refundMemo] - Refund memo (optional)
+     * @param {string} [options.externalId] - Integrations own ID (optional)
      * @param {string} [userIp] - User IP address (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
     SideshiftAPI.prototype.createFixedShift = function (_a) {
         return __awaiter(this, arguments, void 0, function (_b) {
             var fixedShiftBody;
-            var settleAddress = _b.settleAddress, quoteId = _b.quoteId, settleMemo = _b.settleMemo, refundAddress = _b.refundAddress, refundMemo = _b.refundMemo, userIp = _b.userIp;
+            var settleAddress = _b.settleAddress, quoteId = _b.quoteId, settleMemo = _b.settleMemo, refundAddress = _b.refundAddress, refundMemo = _b.refundMemo, externalId = _b.externalId, userIp = _b.userIp;
             return __generator(this, function (_c) {
                 this._validateString(settleAddress, "settleAddress", "createFixedShift");
                 this._validateString(quoteId, "quoteId", "createFixedShift");
                 this._validateOptinalString(settleMemo, "settleMemo", "createFixedShift");
                 this._validateOptinalString(refundAddress, "refundAddress", "createFixedShift");
                 this._validateOptinalString(refundMemo, "refundMemo", "createFixedShift");
+                this._validateOptinalString(externalId, "externalId", "createFixedShift");
                 this._validateOptinalString(userIp, "userIp", "createFixedShift");
-                fixedShiftBody = __assign(__assign(__assign({ settleAddress: settleAddress, affiliateId: this.SIDESHIFT_ID, quoteId: quoteId }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo }));
+                fixedShiftBody = __assign(__assign(__assign(__assign({ settleAddress: settleAddress, affiliateId: this.SIDESHIFT_ID, quoteId: quoteId }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo })), (externalId && { externalId: externalId }));
                 return [2 /*return*/, this._request("".concat(this.BASE_URL, "/shifts/fixed"), {
                         headers: this._getSpecialHeader(userIp),
                         body: JSON.stringify(fixedShiftBody),
@@ -758,13 +760,14 @@ var SideshiftAPI = /** @class */ (function () {
      * @param {string} [options.refundAddress] - Refund address (optional)
      * @param {string} [options.settleMemo] - Settle memo (optional)
      * @param {string} [options.refundMemo] - Refund memo (optional)
+     * @param {string} [options.externalId] - Integrations own ID (optional)
      * @param {string} [userIp] - User IP address (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
     SideshiftAPI.prototype.createVariableShift = function (_a) {
         return __awaiter(this, arguments, void 0, function (_b) {
             var variableShiftBody;
-            var settleAddress = _b.settleAddress, settleCoin = _b.settleCoin, settleNetwork = _b.settleNetwork, depositCoin = _b.depositCoin, depositNetwork = _b.depositNetwork, refundAddress = _b.refundAddress, settleMemo = _b.settleMemo, refundMemo = _b.refundMemo, userIp = _b.userIp;
+            var settleAddress = _b.settleAddress, settleCoin = _b.settleCoin, settleNetwork = _b.settleNetwork, depositCoin = _b.depositCoin, depositNetwork = _b.depositNetwork, refundAddress = _b.refundAddress, settleMemo = _b.settleMemo, refundMemo = _b.refundMemo, externalId = _b.externalId, userIp = _b.userIp;
             return __generator(this, function (_c) {
                 this._validateString(settleAddress, "settleAddress", "createVariableShift");
                 this._validateString(settleCoin, "settleCoin", "createVariableShift");
@@ -774,8 +777,9 @@ var SideshiftAPI = /** @class */ (function () {
                 this._validateOptinalString(refundAddress, "refundAddress", "createVariableShift");
                 this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
                 this._validateOptinalString(refundMemo, "refundMemo", "createVariableShift");
+                this._validateOptinalString(externalId, "externalId", "createVariableShift");
                 this._validateOptinalString(userIp, "userIp", "createVariableShift");
-                variableShiftBody = __assign(__assign(__assign({ settleAddress: settleAddress, settleCoin: settleCoin, settleNetwork: settleNetwork, depositCoin: depositCoin, depositNetwork: depositNetwork, affiliateId: this.SIDESHIFT_ID }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo }));
+                variableShiftBody = __assign(__assign(__assign(__assign({ settleAddress: settleAddress, settleCoin: settleCoin, settleNetwork: settleNetwork, depositCoin: depositCoin, depositNetwork: depositNetwork, affiliateId: this.SIDESHIFT_ID }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo })), (externalId && { externalId: externalId }));
                 return [2 /*return*/, this._request("".concat(this.BASE_URL, "/shifts/variable"), {
                         headers: this._getSpecialHeader(userIp),
                         body: JSON.stringify(variableShiftBody),
