@@ -279,6 +279,7 @@ const fixed_shift = await client.createFixedShift({
     settleMemo: 'memo', // Optional
     refundAddress: '0x...', // Optional
     refundMemo: 'WalletMemo', // Optional
+    externalId: 'integration-1234', // Optional
     userIp: 'ip_address' // Optional
 });
 ```
@@ -322,6 +323,7 @@ const variable_shift = await client.createVariableShift({
     depositNetwork: 'bitcoin',
     refundAddress: '0x...', // Optional
     settleMemo: 'memo', // Optional
+    externalId: 'integration-1234', // Optional
     userIp: 'ip_address' // Optional
 });
 ```
@@ -436,3 +438,4 @@ const chechout = await client.createCheckout({
 }
 
 ```
+
