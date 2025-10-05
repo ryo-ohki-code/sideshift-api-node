@@ -81,7 +81,9 @@ FIXED_ID=$(curl -s -X POST "${SERVER_URL}/shifts/fixed" \
     "settleAddress": "0x346da4f11f4Fe717A20718f843cEADB479D47128",
     "quoteId": '"$Q_ID"',
     "settleMemo": null,
-    "refundAddress": null
+    "refundAddress": null,
+    "refundMemo": null,
+    "externalId": "My_External_ID"
   }')
 echo $FIXED_ID | jq .
 FIXED_ID=$(echo $FIXED_ID | jq .id)
@@ -100,7 +102,8 @@ VARIABLE_ID=$(curl -s -X POST "${SERVER_URL}/shifts/variable" \
     "depositNetwork": "bitcoin",
     "refundAddress": null,
     "settleMemo": null,
-    "refundMemo": null
+    "refundMemo": null,
+    "externalId": "My_External_ID",
   }')
 echo $VARIABLE_ID | jq .
 VARIABLE_ID=$(echo $VARIABLE_ID | jq .id)
@@ -138,7 +141,7 @@ test_get "/checkout/${CHECHOUT_ID_FORMAT}" "GET /checkout"
 echo -e "\n\nTesting  /cancel-order - without waiting"
 
 # POST /cancel-order - Cancel order
-echo -e "\n\n🔍 Testing: /cancel-order" \
+echo -e "\n\n🔍 Testing: /cancel-order"
 curl -s -X POST "${SERVER_URL}/cancel-order" \
   -H "Content-Type: application/json" \
   -d '{
