@@ -648,7 +648,7 @@ var SideshiftAPI = /** @class */ (function () {
                     limitNumber = Number(limit);
                     this._validateNumber(limitNumber, "limit", "getRecentShifts");
                     clampedLimit = Math.min(Math.max(limitNumber || 10, 1), 100);
-                    queryParams = new URLSearchParams({ clampedLimit: clampedLimit.toString() });
+                    queryParams = new URLSearchParams({ limit: clampedLimit.toString() });
                     return [2 /*return*/, this._request("".concat(this.BASE_URL, "/recent-shifts?").concat(queryParams), this.requestHeader)];
                 }
                 else {
