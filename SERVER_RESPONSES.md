@@ -401,6 +401,10 @@ const cancel_shift = await cancelOrder('71449070046fcfee010z')
 ```
 
 ### createCheckout({settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIp})
+Once you create a checkout you need to redirect customer to the payment page: https://pay.sideshift.ai/checkout/{checkout.id}
+
+See [SideShift Pay](https://pay.sideshift.ai/) for more information.
+
 **How to Call it**
 ```
 const chechout = await client.createCheckout({
