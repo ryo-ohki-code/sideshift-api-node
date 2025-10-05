@@ -139,6 +139,7 @@ echo -e "\n\nTesting  /cancel-order - without waiting"
 
 # POST /cancel-order - Cancel order
 echo -e "\n\n🔍 Testing: /cancel-order" \
+curl -s -X POST "${SERVER_URL}/cancel-order" \
   -H "Content-Type: application/json" \
   -d '{
     "orderId": '"$FIXED_ID"'
