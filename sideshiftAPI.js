@@ -107,6 +107,7 @@ class SideshiftAPI {
             return false;
         }
 
+        // Retry on connection reset or timeout errors
         if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') return true;
 
         // Retry on network-related issues
@@ -619,7 +620,7 @@ class SideshiftAPI {
             const limitNumber = Number(limit);
             this._validateNumber(limitNumber, "limit", "getRecentShifts");
             const clampedLimit = Math.min(Math.max(limitNumber || 10, 1), 100);
-            const queryParams = new URLSearchParams({ clampedLimit });
+            const queryParams = new URLSearchParams({ limit: clampedLimit });
             return this._request(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
         } else {
             return this._request(`${this.BASE_URL}/recent-shifts`, this.requestHeader);
@@ -683,6 +684,7 @@ class SideshiftAPI {
         this._validateNumber(depositAmount, "depositAmount", "requestQuote");
         this._validateNumber(settleAmount, "settleAmount", "requestQuote");
         this._validateOptinalString(userIp, "userIp", "requestQuote");
+
         const quoteBody = {
             "depositCoin": depositCoin,
             "depositNetwork": depositNetwork,
@@ -692,6 +694,7 @@ class SideshiftAPI {
             "settleAmount": settleAmount,
             "affiliateId": this.SIDESHIFT_ID
         };
+        
         return await this._post(`${this.BASE_URL}/quotes`, this._getSpecialHeader(userIp), quoteBody);
     }
 
