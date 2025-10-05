@@ -1,5 +1,4 @@
 // Demo server for SideshiftAPI.js module.
-
 require('dotenv').config({ quiet: true }); //  debug: true 
 
 const fs = require('fs');
@@ -267,7 +266,8 @@ app.post('/shifts/fixed', async (req, res) => {
 			quoteId,
 			settleMemo,
 			refundAddress,
-			refundMemo
+			refundMemo,
+			externalId
 		} = req.body;
 
 		const shift = await sideshift.createFixedShift({
@@ -276,6 +276,7 @@ app.post('/shifts/fixed', async (req, res) => {
 			settleMemo,
 			refundAddress,
 			refundMemo,
+			externalId,
 			userIp: extractIPInfo(req.ip).address
 		});
 
@@ -296,7 +297,8 @@ app.post('/shifts/variable', async (req, res) => {
 			depositNetwork,
 			refundAddress,
 			settleMemo,
-			refundMemo
+			refundMemo,
+			externalId
 		} = req.body;
 
 		const shift = await sideshift.createVariableShift({
@@ -308,6 +310,7 @@ app.post('/shifts/variable', async (req, res) => {
 			refundAddress,
 			settleMemo,
 			refundMemo,
+			externalId,
 			userIp: extractIPInfo(req.ip).address
 		});
 
@@ -322,6 +325,7 @@ app.post('/shifts/:id/set-refund-address', async (req, res) => {
 	try {
 		const { id } = req.params;
 		const { refundAddress, refundMemo } = req.body;
+		// const result = await sideshift.setRefundAddress(String(id), String(refundAddress), refundMemo);
 		const result = await sideshift.setRefundAddress({
 			shiftId: id,
 			refundAddress,
