@@ -137,7 +137,7 @@ var SideshiftAPI = /** @class */ (function () {
             return false;
         }
         // Do not retry server-side errors >= 500 
-        if (error.status && error.status >= 500) {
+        if (error.status && (error.status >= 500 || error.status === 403 || error.status === 404)) {
             return false;
         }
         // Retry rate-limited (429)
@@ -507,6 +507,25 @@ var SideshiftAPI = /** @class */ (function () {
     SideshiftAPI.prototype._getSpecialHeader = function (userIp) {
         return __assign(__assign({}, this.HEADER_COMMISSION), (userIp && { "x-user-ip": userIp }));
     };
+    /**
+     * Sends a POST request to the specified URL with the given body and headers
+     * @private
+     * @param {string} url - The API endpoint URL
+     * @param {Object} headers - The headers to include in the request
+     * @param {Object} body - The request body to send
+     * @returns {Promise<Response>} The fetch response object
+     */
+    SideshiftAPI.prototype._post = function (url, headers, body) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, this._request(url, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(body)
+                    })];
+            });
+        });
+    };
     /** API functions - GET */
     /**
      * Get list of supported coins
@@ -692,27 +711,27 @@ var SideshiftAPI = /** @class */ (function () {
             var quoteBody;
             var depositCoin = _b.depositCoin, depositNetwork = _b.depositNetwork, settleCoin = _b.settleCoin, settleNetwork = _b.settleNetwork, depositAmount = _b.depositAmount, settleAmount = _b.settleAmount, userIp = _b.userIp;
             return __generator(this, function (_c) {
-                this._validateString(depositCoin, "depositCoin", "requestQuote");
-                this._validateString(depositNetwork, "depositNetwork", "requestQuote");
-                this._validateString(settleCoin, "settleCoin", "requestQuote");
-                this._validateString(settleNetwork, "settleNetwork", "requestQuote");
-                this._validateNumber(depositAmount, "depositAmount", "requestQuote");
-                this._validateNumber(settleAmount, "settleAmount", "requestQuote");
-                this._validateOptinalString(userIp, "userIp", "requestQuote");
-                quoteBody = {
-                    "depositCoin": depositCoin,
-                    "depositNetwork": depositNetwork,
-                    "settleCoin": settleCoin,
-                    "settleNetwork": settleNetwork,
-                    "depositAmount": depositAmount,
-                    "settleAmount": settleAmount,
-                    "affiliateId": this.SIDESHIFT_ID
-                };
-                return [2 /*return*/, this._request("".concat(this.BASE_URL, "/quotes"), {
-                        headers: this._getSpecialHeader(userIp),
-                        body: JSON.stringify(quoteBody),
-                        method: "POST"
-                    })];
+                switch (_c.label) {
+                    case 0:
+                        this._validateString(depositCoin, "depositCoin", "requestQuote");
+                        this._validateString(depositNetwork, "depositNetwork", "requestQuote");
+                        this._validateString(settleCoin, "settleCoin", "requestQuote");
+                        this._validateString(settleNetwork, "settleNetwork", "requestQuote");
+                        this._validateNumber(depositAmount, "depositAmount", "requestQuote");
+                        this._validateNumber(settleAmount, "settleAmount", "requestQuote");
+                        this._validateOptinalString(userIp, "userIp", "requestQuote");
+                        quoteBody = {
+                            "depositCoin": depositCoin,
+                            "depositNetwork": depositNetwork,
+                            "settleCoin": settleCoin,
+                            "settleNetwork": settleNetwork,
+                            "depositAmount": depositAmount,
+                            "settleAmount": settleAmount,
+                            "affiliateId": this.SIDESHIFT_ID
+                        };
+                        return [4 /*yield*/, this._post("".concat(this.BASE_URL, "/quotes"), this._getSpecialHeader(userIp), quoteBody)];
+                    case 1: return [2 /*return*/, _c.sent()];
+                }
             });
         });
     };
@@ -733,19 +752,19 @@ var SideshiftAPI = /** @class */ (function () {
             var fixedShiftBody;
             var settleAddress = _b.settleAddress, quoteId = _b.quoteId, settleMemo = _b.settleMemo, refundAddress = _b.refundAddress, refundMemo = _b.refundMemo, externalId = _b.externalId, userIp = _b.userIp;
             return __generator(this, function (_c) {
-                this._validateString(settleAddress, "settleAddress", "createFixedShift");
-                this._validateString(quoteId, "quoteId", "createFixedShift");
-                this._validateOptinalString(settleMemo, "settleMemo", "createFixedShift");
-                this._validateOptinalString(refundAddress, "refundAddress", "createFixedShift");
-                this._validateOptinalString(refundMemo, "refundMemo", "createFixedShift");
-                this._validateOptinalString(externalId, "externalId", "createFixedShift");
-                this._validateOptinalString(userIp, "userIp", "createFixedShift");
-                fixedShiftBody = __assign(__assign(__assign(__assign({ settleAddress: settleAddress, affiliateId: this.SIDESHIFT_ID, quoteId: quoteId }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo })), (externalId && { externalId: externalId }));
-                return [2 /*return*/, this._request("".concat(this.BASE_URL, "/shifts/fixed"), {
-                        headers: this._getSpecialHeader(userIp),
-                        body: JSON.stringify(fixedShiftBody),
-                        method: "POST"
-                    })];
+                switch (_c.label) {
+                    case 0:
+                        this._validateString(settleAddress, "settleAddress", "createFixedShift");
+                        this._validateString(quoteId, "quoteId", "createFixedShift");
+                        this._validateOptinalString(settleMemo, "settleMemo", "createFixedShift");
+                        this._validateOptinalString(refundAddress, "refundAddress", "createFixedShift");
+                        this._validateOptinalString(refundMemo, "refundMemo", "createFixedShift");
+                        this._validateOptinalString(externalId, "externalId", "createFixedShift");
+                        this._validateOptinalString(userIp, "userIp", "createFixedShift");
+                        fixedShiftBody = __assign(__assign(__assign(__assign({ settleAddress: settleAddress, affiliateId: this.SIDESHIFT_ID, quoteId: quoteId }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo })), (externalId && { externalId: externalId }));
+                        return [4 /*yield*/, this._post("".concat(this.BASE_URL, "/shifts/fixed"), this._getSpecialHeader(userIp), fixedShiftBody)];
+                    case 1: return [2 /*return*/, _c.sent()];
+                }
             });
         });
     };
@@ -769,22 +788,22 @@ var SideshiftAPI = /** @class */ (function () {
             var variableShiftBody;
             var settleAddress = _b.settleAddress, settleCoin = _b.settleCoin, settleNetwork = _b.settleNetwork, depositCoin = _b.depositCoin, depositNetwork = _b.depositNetwork, refundAddress = _b.refundAddress, settleMemo = _b.settleMemo, refundMemo = _b.refundMemo, externalId = _b.externalId, userIp = _b.userIp;
             return __generator(this, function (_c) {
-                this._validateString(settleAddress, "settleAddress", "createVariableShift");
-                this._validateString(settleCoin, "settleCoin", "createVariableShift");
-                this._validateString(settleNetwork, "settleNetwork", "createVariableShift");
-                this._validateString(depositCoin, "depositCoin", "createVariableShift");
-                this._validateString(depositNetwork, "depositNetwork", "createVariableShift");
-                this._validateOptinalString(refundAddress, "refundAddress", "createVariableShift");
-                this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
-                this._validateOptinalString(refundMemo, "refundMemo", "createVariableShift");
-                this._validateOptinalString(externalId, "externalId", "createVariableShift");
-                this._validateOptinalString(userIp, "userIp", "createVariableShift");
-                variableShiftBody = __assign(__assign(__assign(__assign({ settleAddress: settleAddress, settleCoin: settleCoin, settleNetwork: settleNetwork, depositCoin: depositCoin, depositNetwork: depositNetwork, affiliateId: this.SIDESHIFT_ID }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo })), (externalId && { externalId: externalId }));
-                return [2 /*return*/, this._request("".concat(this.BASE_URL, "/shifts/variable"), {
-                        headers: this._getSpecialHeader(userIp),
-                        body: JSON.stringify(variableShiftBody),
-                        method: "POST"
-                    })];
+                switch (_c.label) {
+                    case 0:
+                        this._validateString(settleAddress, "settleAddress", "createVariableShift");
+                        this._validateString(settleCoin, "settleCoin", "createVariableShift");
+                        this._validateString(settleNetwork, "settleNetwork", "createVariableShift");
+                        this._validateString(depositCoin, "depositCoin", "createVariableShift");
+                        this._validateString(depositNetwork, "depositNetwork", "createVariableShift");
+                        this._validateOptinalString(refundAddress, "refundAddress", "createVariableShift");
+                        this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
+                        this._validateOptinalString(refundMemo, "refundMemo", "createVariableShift");
+                        this._validateOptinalString(externalId, "externalId", "createVariableShift");
+                        this._validateOptinalString(userIp, "userIp", "createVariableShift");
+                        variableShiftBody = __assign(__assign(__assign(__assign({ settleAddress: settleAddress, settleCoin: settleCoin, settleNetwork: settleNetwork, depositCoin: depositCoin, depositNetwork: depositNetwork, affiliateId: this.SIDESHIFT_ID }, (settleMemo && { settleMemo: settleMemo })), (refundAddress && { refundAddress: refundAddress })), (refundMemo && { refundMemo: refundMemo })), (externalId && { externalId: externalId }));
+                        return [4 /*yield*/, this._post("".concat(this.BASE_URL, "/shifts/variable"), this._getSpecialHeader(userIp), variableShiftBody)];
+                    case 1: return [2 /*return*/, _c.sent()];
+                }
             });
         });
     };
@@ -801,15 +820,15 @@ var SideshiftAPI = /** @class */ (function () {
             var bodyObj;
             var shiftId = _b.shiftId, refundAddress = _b.refundAddress, refundMemo = _b.refundMemo;
             return __generator(this, function (_c) {
-                this._validateString(shiftId, "shiftId", "setRefundAddress");
-                this._validateString(refundAddress, "refundAddress", "setRefundAddress");
-                this._validateOptinalString(refundMemo, "refundMemo", "setRefundAddress");
-                bodyObj = __assign({ "address": refundAddress }, (refundMemo && { "memo": refundMemo }));
-                return [2 /*return*/, this._request("".concat(this.BASE_URL, "/shifts/").concat(shiftId, "/set-refund-address"), {
-                        headers: this.HEADER_WITH_TOKEN,
-                        body: JSON.stringify(bodyObj),
-                        method: "POST"
-                    })];
+                switch (_c.label) {
+                    case 0:
+                        this._validateString(shiftId, "shiftId", "setRefundAddress");
+                        this._validateString(refundAddress, "refundAddress", "setRefundAddress");
+                        this._validateOptinalString(refundMemo, "refundMemo", "setRefundAddress");
+                        bodyObj = __assign({ "address": refundAddress }, (refundMemo && { "memo": refundMemo }));
+                        return [4 /*yield*/, this._post("".concat(this.BASE_URL, "/shifts/").concat(shiftId, "/set-refund-address"), this.HEADER_WITH_TOKEN, bodyObj)];
+                    case 1: return [2 /*return*/, _c.sent()];
+                }
             });
         });
     };
@@ -822,15 +841,15 @@ var SideshiftAPI = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             var bodyObj;
             return __generator(this, function (_a) {
-                this._validateString(orderId, "orderId", "cancelOrder");
-                bodyObj = {
-                    "orderId": orderId
-                };
-                return [2 /*return*/, this._request("".concat(this.BASE_URL, "/cancel-order"), {
-                        headers: this.HEADER_WITH_TOKEN,
-                        body: JSON.stringify(bodyObj),
-                        method: "POST"
-                    })];
+                switch (_a.label) {
+                    case 0:
+                        this._validateString(orderId, "orderId", "cancelOrder");
+                        bodyObj = {
+                            "orderId": orderId
+                        };
+                        return [4 /*yield*/, this._post("".concat(this.BASE_URL, "/cancel-order"), this.HEADER_WITH_TOKEN, bodyObj)];
+                    case 1: return [2 /*return*/, _a.sent()];
+                }
             });
         });
     };
@@ -852,20 +871,20 @@ var SideshiftAPI = /** @class */ (function () {
             var checkoutBody;
             var settleCoin = _b.settleCoin, settleNetwork = _b.settleNetwork, settleAmount = _b.settleAmount, settleAddress = _b.settleAddress, successUrl = _b.successUrl, cancelUrl = _b.cancelUrl, settleMemo = _b.settleMemo, userIp = _b.userIp;
             return __generator(this, function (_c) {
-                this._validateString(settleCoin, "settleCoin", "createVariableShift");
-                this._validateString(settleNetwork, "settleNetwork", "createVariableShift");
-                this._validateNumber(settleAmount, "settleAmount", "createVariableShift");
-                this._validateString(settleAddress, "settleAddress", "createVariableShift");
-                this._validateString(successUrl, "successUrl", "createVariableShift");
-                this._validateString(cancelUrl, "cancelUrl", "createVariableShift");
-                this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
-                this._validateOptinalString(userIp, "userIp", "createVariableShift");
-                checkoutBody = __assign({ settleCoin: settleCoin, settleNetwork: settleNetwork, settleAmount: settleAmount, settleAddress: settleAddress, successUrl: successUrl, cancelUrl: cancelUrl, affiliateId: this.SIDESHIFT_ID }, (settleMemo && { settleMemo: settleMemo }));
-                return [2 /*return*/, this._request("".concat(this.BASE_URL, "/checkout"), {
-                        headers: this._getSpecialHeader(userIp),
-                        body: JSON.stringify(checkoutBody),
-                        method: "POST"
-                    })];
+                switch (_c.label) {
+                    case 0:
+                        this._validateString(settleCoin, "settleCoin", "createCheckout");
+                        this._validateString(settleNetwork, "settleNetwork", "createCheckout");
+                        this._validateNumber(settleAmount, "settleAmount", "createCheckout");
+                        this._validateString(settleAddress, "settleAddress", "createCheckout");
+                        this._validateString(successUrl, "successUrl", "createCheckout");
+                        this._validateString(cancelUrl, "cancelUrl", "createCheckout");
+                        this._validateOptinalString(settleMemo, "settleMemo", "createCheckout");
+                        this._validateOptinalString(userIp, "userIp", "createCheckout");
+                        checkoutBody = __assign({ settleCoin: settleCoin, settleNetwork: settleNetwork, settleAmount: settleAmount, settleAddress: settleAddress, successUrl: successUrl, cancelUrl: cancelUrl, affiliateId: this.SIDESHIFT_ID }, (settleMemo && { settleMemo: settleMemo }));
+                        return [4 /*yield*/, this._post("".concat(this.BASE_URL, "/checkout"), this._getSpecialHeader(userIp), checkoutBody)];
+                    case 1: return [2 /*return*/, _c.sent()];
+                }
             });
         });
     };
