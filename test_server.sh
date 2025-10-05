@@ -103,7 +103,7 @@ VARIABLE_ID=$(curl -s -X POST "${SERVER_URL}/shifts/variable" \
     "refundAddress": null,
     "settleMemo": null,
     "refundMemo": null,
-    "externalId": "My_External_ID",
+    "externalId": "My_External_ID"
   }')
 echo $VARIABLE_ID | jq .
 VARIABLE_ID=$(echo $VARIABLE_ID | jq .id)
