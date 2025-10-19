@@ -7,10 +7,10 @@ class SideshiftAPI {
      * Create a Sideshift API client
      * @param {string} secret - Your Sideshift secret key
      * @param {string} id - Your Sideshift ID
-     * @param {string} commisssionRate - Your commission rate from 0 to 2.
+     * @param {string} commissionRate - Your commission rate from 0 to 2.
      * @param {string} verbose - If true, activate console.error output.
      */
-    constructor({ secret, id, commisssionRate = "0.5", verbose = false, retries = {} }) {
+    constructor({ secret, id, commissionRate = "0.5", verbose = false, retries = {} }) {
         /** Auth Configuration */
         if (!secret || typeof secret !== 'string' || !secret.trim()) {
             throw new Error(`SIDESHIFT_SECRET must be a non-empty string. Provided: ${secret}`);
@@ -21,7 +21,7 @@ class SideshiftAPI {
 
         this.SIDESHIFT_SECRET = secret;
         this.SIDESHIFT_ID = id;
-        this.COMMISSION_RATE = String(commisssionRate);
+        this.COMMISSION_RATE = String(commissionRate);
 
         /** Max retries configurations */
         this.maxRetries = retries.maxRetries || 5;
