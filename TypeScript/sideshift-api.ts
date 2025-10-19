@@ -1,22 +1,34 @@
 /**
- * TypeScript Sideshift module - API v2
+ * TypeScript Sideshift APIv2 SDK
  */
 
-interface SideshiftAPIOptions {
-    secret: string;
-    id: string;
-    commisssionRate?: string;
-    verbose?: boolean;
-    retries?: {
-        maxRetries?: number;
-        retryDelay?: number;
-        retryBackoff?: number;
-        retryCappedDelay?: number;
-    };
-}
+import {
+    SideshiftAPIOptions,
+} from './types/constructor';
+
+import {
+    PairData,
+    RecentShiftData,
+    XaiStatsData,
+    AccountData,
+} from './types/types';
+
+import {
+    ShiftData,
+    QuoteData,
+    FixedShiftData,
+    VariableShiftData,
+    RefundData,
+    CheckoutData
+} from './types/shifts';
+
+import { _filterHeaders, DEFAULT_HEADERS, HEADER_WITH_TOKEN, HEADER_COMMISSION } from './utils/headers';
+import { _validateString, _validateOptionalString, _validateNumber, _validateArray } from './utils/validationHelpers';
+import { _handleResponse } from './utils/responseHandler';
+import { _shouldRetry, _calculateBackoffDelay, _delay } from './utils/retries';
+import { _errorMsg, _createError } from './utils/error';
 
 export class SideshiftAPI {
-    private SIDESHIFT_SECRET: string;
     private SIDESHIFT_ID: string;
     private COMMISSION_RATE: string;
 
@@ -42,27 +54,27 @@ export class SideshiftAPI {
     constructor({
         secret,
         id,
-        commisssionRate = "0.5",
+        commissionRate = "0.5",
         verbose = false,
         retries = {}
     }: SideshiftAPIOptions) {
         /** Auth Configuration */
         if (!secret || typeof secret !== 'string' || !secret.trim()) {
-            throw new Error(`SIDESHIFT_SECRET must be a non-empty string. Provided: ${secret}`);
+            throw new Error(`SideShift API secret must be a non-empty string. Provided: ${secret}`);
         }
         if (!id || typeof id !== 'string' || !id.trim()) {
             throw new Error(`SIDESHIFT_ID must be a non-empty string. Provided: ${id}`);
         }
 
-        this.SIDESHIFT_SECRET = secret;
+        // this.SIDESHIFT_\SECRET = secret;
         this.SIDESHIFT_ID = id;
-        this.COMMISSION_RATE = String(commisssionRate);
+        this.COMMISSION_RATE = String(commissionRate);
 
         /** Max retries configurations */
-        this.maxRetries = retries.maxRetries || 5;
-        this.retryDelay = retries.retryDelay || 2000; // 2 seconds
-        this.retryBackoff = retries.retryBackoff || 2; // exponential backoff multiplier
-        this.retryCappedDelay = retries.retryCappedDelay || 10000; // 10 seconds
+        this.maxRetries = retries.maxRetries ?? 5;
+        this.retryDelay = retries.retryDelay ?? 2000; // 2 seconds
+        this.retryBackoff = retries.retryBackoff ?? 2; // exponential backoff multiplier
+        this.retryCappedDelay = retries.retryCappedDelay ?? 10000; // 10 seconds
 
         /** Verbose mode true/false */
         this.verbose = !!verbose;
@@ -70,19 +82,9 @@ export class SideshiftAPI {
         this.defaultTimeOut = 10000; // 10 seconds
 
         /** Header configurations */
-        this.HEADER = {
-            "Content-Type": "application/json",
-        };
-
-        this.HEADER_WITH_TOKEN = {
-            ...this.HEADER,
-            "x-sideshift-secret": this.SIDESHIFT_SECRET
-        };
-
-        this.HEADER_COMMISSION = {
-            ...this.HEADER_WITH_TOKEN,
-            ...(this.COMMISSION_RATE !== "0.5" && { commissionRate: this.COMMISSION_RATE }),
-        };
+        this.HEADER = DEFAULT_HEADERS;
+        this.HEADER_WITH_TOKEN = HEADER_WITH_TOKEN(secret);
+        this.HEADER_COMMISSION = HEADER_COMMISSION(secret, this.COMMISSION_RATE);
 
         this.imageHeader = {
             headers: { "Accept": "image/svg" },
@@ -109,153 +111,17 @@ export class SideshiftAPI {
     }
 
     /**
-     * Filter API key from the log
+     * Get special headers with optional user IP
      * @private
-     * @param {Object} headers - The headers object to filter
-     * @returns {string} The filtered headers as a JSON string
+     * @param {string|null|undefined} userIp - The user's IP address
+     * @returns {Object} The headers object with special headers and optional user IP
      */
-    private _filterHeaders(headers: Record<string, any>): string {
-        if (!headers) return 'None';
-
-        const filtered = { ...headers };
-        const sensitiveKeys = ['x-sideshift-secret']; // Array, if need to add more filter
-
-        for (const key of sensitiveKeys) {
-            if (filtered[key]) {
-                filtered[key] = '[FILTERED]';
-            }
-        }
-
-        return JSON.stringify(filtered, null, 2);
-    }
-
-    /**
-     * Determines whether an error should be retried
-     * @private
-     * @param {Error} error - The error object to check
-     * @returns {boolean} Whether the error should be retried
-     */
-    private _shouldRetry(error: any): boolean {
-        if (!error) {
-            return false;
-        }
-
-        if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') return true;
-
-        // Retry on network-related issues
-        if (error.name === 'AbortError' || error.message.includes('timeout') || error.message.includes('fetch')) {
-            return true;
-        }
-
-        // Don't retry on client-side errors like invalid URLs or malformed data
-        if (error.name === 'TypeError' || error.name === 'SyntaxError') {
-            return false;
-        }
-
-        // Do not retry server-side errors >= 500 
-        if (error.status && (error.status >= 500 || error.status === 403 || error.status === 404)) {
-            return false;
-        }
-        // Retry rate-limited (429)
-        if (error.status === 429) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Calculate backoff delay for retries
-     * @private
-     * @param {number} retries - The number of retries attempted
-     * @returns {number} The calculated backoff delay in milliseconds
-     */
-    private _calculateBackoffDelay(retries: number): number {
-        if (retries >= this.maxRetries) {
-            return this.retryCappedDelay;
-        }
-
-        const baseDelay = Math.pow(this.retryBackoff, retries) * this.retryDelay;
-        const cappedBaseDelay = Math.min(baseDelay, this.retryCappedDelay);
-        const jitter = Math.floor(Math.random() * cappedBaseDelay * 0.2);
-        return cappedBaseDelay + jitter;
-    }
-
-    /**
-     * Create a delay promise
-     * @private
-     * @param {number} ms - The number of milliseconds to delay
-     * @returns {Promise<void>} A promise that resolves after the specified delay
-     */
-    private _delay(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    /**
-     * Set common error properties on an Error object
-     * @private
-     * @param {string} message - The error message
-     * @param {Object} response - Fetch response object
-     * @param {string} url - The API endpoint URL
-     * @param {Object} options - Fetch options
-     * @param {*} errorData - Error data
-     * @returns {Error}
-     */
-    private _createError(message: string, response: any, url: string, options: any, errorData: any): Error {
-        const error = new Error(message);
-        (error as any).status = response?.status;
-        (error as any).statusText = response?.statusText;
-        (error as any).url = url;
-        (error as any).options = options;
-        (error as any).error = errorData;
-        if (errorData?.stack) {
-            error.stack = errorData.stack;
-        }
-        return error;
-    }
-
-    /**
-     * Handle the API request
-     * @private
-     * @param {Object} response - Fetch response object
-     * @param {string} url - The API endpoint URL
-     * @param {Object} options - Fetch options
-     * @returns {Promise<Object>} Resolves with the response object if successful
-     * @throws {Error} Throws an error with HTTP status details and error data when response is not ok
-     */
-    private async _handleResponse(response: Response, url: string, options: any): Promise<Response> {
-        if (this.verbose) {
-            console.log('\n=== DEBUG REQUEST ===');
-            console.log('URL:', url);
-            console.log('Method:', options?.method);
-            console.log('Headers:', options?.headers ? this._filterHeaders(options.headers) : 'None');
-            console.log('Body:', options?.body ? typeof options.body === 'string' ? options.body : JSON.stringify(options.body, null, 2) : 'No body');
-            console.log('=====================');
-        }
-        if (!response.ok) {
-            let errorData = {};
-
-            try {
-                errorData = await response.json() as any;
-            } catch {
-                try {
-                    errorData = await response.text();
-                } catch {
-                    errorData = { message: 'Failed to parse error details' };
-                }
-            }
-
-            const error = this._createError(`HTTP ${response?.status} ${response?.statusText}`,
-                response,
-                url,
-                options,
-                (errorData as any).error || errorData
-            );
-
-            throw error;
-        }
-
-        return response;
+    private _getSpecialHeader(userIp: string | null | undefined): Object {
+        return {
+            ...this.HEADER_COMMISSION,
+            ...(userIp && { "x-user-ip": userIp }),
+            // ...(userIp !== null && userIp !== undefined && { "x-user-ip": userIp }),
+        };
     }
 
     /**
@@ -286,7 +152,7 @@ export class SideshiftAPI {
 
             clearTimeout(timeoutId);
 
-            const handledResponse = await this._handleResponse(response, url, options);
+            const handledResponse = await _handleResponse(response, url, options, this.verbose);
 
             if (url === `${this.BASE_URL}/cancel-order` && handledResponse.status === 204) {
                 let orderId = null;
@@ -319,19 +185,25 @@ export class SideshiftAPI {
                 }
 
                 // Retry on specific types of errors
-                const shouldRetry = retries < this.maxRetries && this._shouldRetry(err);
+                const shouldRetry = retries < this.maxRetries && _shouldRetry(err);
 
                 if (shouldRetry) {
-                    const delay = this._calculateBackoffDelay(retries);
-
+                    // const delay = this._calculateBackoffDelay(retries);
+                    const delay = _calculateBackoffDelay(
+                        retries,
+                        this.retryDelay,
+                        this.retryBackoff,
+                        this.maxRetries,
+                        this.retryCappedDelay
+                    )
                     if (this.verbose) console.warn(`Request failed ${retries}/${this.maxRetries}, retrying in ${delay}ms...`, err.message);
 
-                    await this._delay(delay);
+                    await _delay(delay);
                     return this._request(url, options, retries + 1);
                 }
             }
 
-            const error = this._createError(`Fetch API error: ${err.error?.message || err.message || err}`,
+            const error = _createError(`Fetch API error: ${err.error?.message || err.message || err}`,
                 null,
                 url,
                 options,
@@ -363,7 +235,7 @@ export class SideshiftAPI {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
-            const handledResponse = await this._handleResponse(response, url, options);
+            const handledResponse = await _handleResponse(response, url, options, this.verbose);
 
             try {
                 if (typeof handledResponse.blob !== 'function') {
@@ -371,7 +243,7 @@ export class SideshiftAPI {
                 }
                 return await handledResponse.blob();
             } catch (e: any) {
-                const error = this._createError(`Failed to process image response: ${e.message || e}`,
+                const error = _createError(`Failed to process image response: ${e.message || e}`,
                     response,
                     url,
                     options,
@@ -385,18 +257,24 @@ export class SideshiftAPI {
                 controller.abort();
             }
             // Retry logic
-            const shouldRetry = retries < this.maxRetries && this._shouldRetry(err);
+            const shouldRetry = retries < this.maxRetries && _shouldRetry(err);
 
             if (shouldRetry) {
-                const delay = this._calculateBackoffDelay(retries);
-
+                // const delay = this._calculateBackoffDelay(retries);
+                const delay = _calculateBackoffDelay(
+                    retries,
+                    this.retryDelay,
+                    this.retryBackoff,
+                    this.maxRetries,
+                    this.retryCappedDelay
+                )
                 if (this.verbose) console.warn(`Image request failed ${retries}/${this.maxRetries}, retrying in ${delay}ms...`, err.message);
 
-                await this._delay(delay);
-                return this._request(url, options, retries + 1);
+                await _delay(delay);
+                return this._requestImage(url, options, retries + 1);
             }
 
-            const error = this._createError(`Fetch API image error: ${err.error?.message || err.message || err}`,
+            const error = _createError(`Fetch API image error: ${err.error?.message || err.message || err}`,
                 null,
                 url,
                 options,
@@ -404,129 +282,6 @@ export class SideshiftAPI {
             );
             throw error;
         }
-    }
-
-
-    /**
-     * Generate an error message for missing or invalid parameters
-     * @private
-     * @param {string} fieldName - The name of the field that caused the error
-     * @param {string} source - The source where the error occurred
-     * @returns {string} The formatted error message
-     */
-    private _errorMsg(fieldName: string, source: string): string {
-        const error = `Error from ${source}: Missing or invalid ${fieldName} parameter`;
-        return error;
-    }
-
-    /**
-     * Validate that a value is a non-empty string
-     * @private
-     * @param {*} value - The value to validate
-     * @param {string} fieldName - The name of the field being validated
-     * @param {string} source - The source where the validation occurred
-     * @returns {string} The trimmed valid string value
-     * @throws {Error} If the value is invalid
-     */
-    private _validateString(value: any, fieldName: string, source: string): string {
-        if (!value || typeof value !== 'string' || !value.trim()) {
-            throw new Error(this._errorMsg(fieldName, source));
-        }
-        return value.trim();
-    }
-
-    /**
-     * Validate that a value is an optional string
-     * @private
-     * @param {*} value - The value to validate
-     * @param {string} fieldName - The name of the field being validated
-     * @param {string} source - The source where the validation occurred
-     * @returns {string|null|undefined} The trimmed valid string value, or null/undefined if not provided
-     * @throws {Error} If the value is provided but not a string
-     */
-    private _validateOptinalString(value: any, fieldName: string, source: string): string | null | undefined {
-        if (value && typeof value !== 'string') {
-            throw new Error(this._errorMsg(fieldName, source));
-        }
-        if (value === null || value === undefined) {
-            return value;
-        } else {
-            return value.trim();
-        }
-    }
-
-    /**
-     * Validate that a value is a non-negative finite number
-     * @private
-     * @param {*} value - The value to validate
-     * @param {string} fieldName - The name of the field being validated
-     * @param {string} source - The source where the validation occurred
-     * @returns {number|null} The valid number value, or null if not provided
-     * @throws {Error} If the value is invalid
-     */
-    private _validateNumber(value: any, fieldName: string, source: string): number | null {
-        if (value !== null && (typeof value !== 'number' || value < 0 || !Number.isFinite(value))) {
-            throw new Error(this._errorMsg(fieldName, source));
-        }
-        return value;
-    }
-
-    /**
-     * Validate that a value is a non-empty array with specified element type
-     * @private
-     * @param {*} value - The value to validate
-     * @param {string} fieldName - The name of the field being validated
-     * @param {string} source - The source where the validation occurred
-     * @param {string} elementType - The expected type of array elements (default: 'string')
-     * @returns {Array} The valid array value
-     * @throws {Error} If the value is invalid
-     */
-    private _validateArray(value: any, fieldName: string, source: string, elementType: string = 'string'): Array<any> {
-        if (!Array.isArray(value)) {
-            throw new Error(`${this._errorMsg(fieldName, source)} - must be an array`);
-        }
-
-        if (value.length === 0) {
-            throw new Error(`${this._errorMsg(fieldName, source)} - must be a non-empty array`);
-        }
-
-        this._validateArrayElements(value, fieldName, source, elementType);
-
-        return value;
-    }
-
-    /**
-     * Validate that all elements in an array are of the specified type
-     * @private
-     * @param {Array} value - The array to validate
-     * @param {string} fieldName - The name of the field being validated
-     * @param {string} source - The source where the validation occurred
-     * @param {string} elementType - The expected type of array elements (default: 'string')
-     * @returns {Array} The valid array value
-     * @throws {Error} If any element is invalid
-     */
-    private _validateArrayElements(value: Array<any>, fieldName: string, source: string, elementType: string = 'string'): Array<any> {
-        for (let i = 0; i < value.length; i++) {
-            if (!value[i] || typeof value[i] !== elementType ||
-                (elementType === 'string' && !value[i].trim())) {
-                throw new Error(`${this._errorMsg(`${fieldName}[${i}]`, source)} - each element must be a non-empty ${elementType}`);
-            }
-        }
-        return value;
-    }
-
-    /**
-     * Get special headers with optional user IP
-     * @private
-     * @param {string|null|undefined} userIp - The user's IP address
-     * @returns {Object} The headers object with special headers and optional user IP
-     */
-    private _getSpecialHeader(userIp: string | null | undefined): Object {
-        return {
-            ...this.HEADER_COMMISSION,
-            ...(userIp && { "x-user-ip": userIp }),
-            // ...(userIp !== null && userIp !== undefined && { "x-user-ip": userIp }),
-        };
     }
 
     /**
@@ -537,14 +292,13 @@ export class SideshiftAPI {
      * @param {Object} body - The request body to send
      * @returns {Promise<Response>} The fetch response object
      */
-    async _post(url: string, headers: any, body: any): Promise<Response> {
+    private async _post(url: string, headers: any, body: any): Promise<any> {
         return this._request(url, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(body)
         });
     }
-
 
 
     /** API functions - GET */
@@ -562,7 +316,7 @@ export class SideshiftAPI {
      * @returns {Promise<Blob|Object>} Image blob or error object
      */
     async getCoinIcon(coin: string): Promise<Blob | object> {
-        this._validateString(coin, "coin", "getCoinIcon");
+        _validateString(coin, "coin", "getCoinIcon");
         return this._requestImage(`${this.BASE_URL}/coins/icon/${coin}`, this.imageHeader);
     }
 
@@ -579,12 +333,12 @@ export class SideshiftAPI {
      * @param {string} from - From coin
      * @param {string} to - To coin
      * @param {number} amount - Deposit amout, Without specifying an amount, the system will assume a deposit value of 500 USD
-     * @returns {Promise<Object>} Pair data from API
+     * @returns {Promise<PairData>} Pair data from API
      */
-    async getPair(from: string, to: string, amount: number | null = null): Promise<object> {
-        this._validateString(from, "from", "getPair");
-        this._validateString(to, "to", "getPair");
-        if (amount) this._validateNumber(Number(amount), "amount", "getPair");
+    async getPair(from: string, to: string, amount: number | null = null): Promise<PairData> {
+        _validateString(from, "from", "getPair");
+        _validateString(to, "to", "getPair");
+        if (amount) _validateNumber(Number(amount), "amount", "getPair");
 
         const queryParams = new URLSearchParams();
         queryParams.append('affiliateId', this.SIDESHIFT_ID);
@@ -597,10 +351,10 @@ export class SideshiftAPI {
     /**
      * Get multiple pairs
      * @param {string[]} arrayOfCoins - Array of coin: "name-network", "BNB-bsc" "BTC-mainnet"
-     * @returns {Promise<Object>} Pairs data from API
+     * @returns {Promise<PairData[]>} Pair data from API
      */
-    async getPairs(arrayOfCoins: string[]) {
-        this._validateArray(arrayOfCoins, "arrayOfCoins", "getPairs", "string");
+    async getPairs(arrayOfCoins: string[]): Promise<PairData[]> {
+        _validateArray(arrayOfCoins, "arrayOfCoins", "getPairs", "string");
         const queryParams = new URLSearchParams({
             pairs: arrayOfCoins.join(','), // 'btc-mainnet,usdc-bsc,bch,eth'
             affiliateId: this.SIDESHIFT_ID,
@@ -611,20 +365,20 @@ export class SideshiftAPI {
     /**
      * Get shift by ID
      * @param {string} shiftId - Shift ID
-     * @returns {Promise<Object>} Shift data from API
+     * @returns {Promise<ShiftData>} Shift data from API
      */
-    async getShift(shiftId: string) {
-        this._validateString(shiftId, "shiftId", "getShift");
+    async getShift(shiftId: string): Promise<ShiftData> {
+        _validateString(shiftId, "shiftId", "getShift");
         return this._request(`${this.BASE_URL}/shifts/${shiftId}`, this.requestHeader);
     }
 
     /**
      * Get multiple shifts by IDs
      * @param {string[]} arrayOfIds - Array of shift IDs
-     * @returns {Promise<Object>} Bulk shifts data from API
+     * @returns {Promise<ShiftData[]>} Bulk shifts data from API
      */
-    async getBulkShifts(arrayOfIds: string[]) {
-        this._validateArray(arrayOfIds, "arrayOfIds", "getBulkShifts", "string");
+    async getBulkShifts(arrayOfIds: string[]): Promise<ShiftData[]> {
+        _validateArray(arrayOfIds, "arrayOfIds", "getBulkShifts", "string");
         const queryParams = new URLSearchParams({
             ids: arrayOfIds.join(',') // 'f173118220f1461841da,dda3867168da23927b62'
         });
@@ -634,12 +388,12 @@ export class SideshiftAPI {
     /**
      * Get recent shifts
      * @param {number} [limit=10] - Number of results (1-100)
-     * @returns {Promise<Object>} Recent shifts data from API
+     * @returns {Promise<RecentShiftData[]>} Recent shifts data from API
      */
-    async getRecentShifts(limit?: number): Promise<object> {
+    async getRecentShifts(limit?: number): Promise<RecentShiftData[]> {
         if (limit) {
             const limitNumber = Number(limit);
-            this._validateNumber(limitNumber, "limit", "getRecentShifts");
+            _validateNumber(limitNumber, "limit", "getRecentShifts");
             const clampedLimit = Math.min(Math.max(limitNumber || 10, 1), 100);
             const queryParams = new URLSearchParams({ limit: clampedLimit.toString() });
             return this._request(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
@@ -650,27 +404,27 @@ export class SideshiftAPI {
 
     /**
      * Get XAI statistics
-     * @returns {Promise<Object>} XAI stats data from API
+     * @returns {Promise<XaiStatsData>} XAI stats data from API
      */
-    async getXaiStats(): Promise<object> {
+    async getXaiStats(): Promise<XaiStatsData> {
         return this._request(`${this.BASE_URL}/xai/stats`, this.requestHeader);
     }
 
     /**
      * Get your Sideshift account information
-     * @returns {Promise<Object>} Account data from API
+     * @returns {Promise<AccountData>} Account data from API
      */
-    async getAccount(): Promise<object> {
+    async getAccount(): Promise<AccountData> {
         return this._request(`${this.BASE_URL}/account`, this.requestHeaderWithToken);
     }
 
     /**
      * Get checkout information
      * @param {string} checkoutId - Checkout ID
-     * @returns {Promise<Object>} Checkout data from API
+     * @returns {Promise<CheckoutData>} Checkout data from API
      */
-    async getCheckout(checkoutId: string): Promise<object> {
-        this._validateString(checkoutId, "checkoutId", "getCheckout");
+    async getCheckout(checkoutId: string): Promise<CheckoutData> {
+        _validateString(checkoutId, "checkoutId", "getCheckout");
         return this._request(`${this.BASE_URL}/checkout/${checkoutId}`, this.requestHeaderWithToken);
     }
 
@@ -686,7 +440,7 @@ export class SideshiftAPI {
      * @param {number} options.depositAmount - Deposit amount
      * @param {number} options.settleAmount - Settle amount
      * @param {string} [userIp] - User IP address (optional)
-     * @returns {Promise<Object>} Quote data from API
+     * @returns {Promise<QuoteData>} Quote data from API
      */
     async requestQuote({
         depositCoin,
@@ -704,21 +458,21 @@ export class SideshiftAPI {
         depositAmount: number;
         settleAmount: number;
         userIp?: string;
-    }): Promise<object> {
-        this._validateString(depositCoin, "depositCoin", "requestQuote");
-        this._validateString(depositNetwork, "depositNetwork", "requestQuote");
-        this._validateString(settleCoin, "settleCoin", "requestQuote");
-        this._validateString(settleNetwork, "settleNetwork", "requestQuote");
-        this._validateNumber(depositAmount, "depositAmount", "requestQuote");
-        this._validateNumber(settleAmount, "settleAmount", "requestQuote");
-        this._validateOptinalString(userIp, "userIp", "requestQuote");
+    }): Promise<QuoteData> {
+        _validateString(depositCoin, "depositCoin", "requestQuote");
+        _validateString(depositNetwork, "depositNetwork", "requestQuote");
+        _validateString(settleCoin, "settleCoin", "requestQuote");
+        _validateString(settleNetwork, "settleNetwork", "requestQuote");
+        _validateNumber(depositAmount, "depositAmount", "requestQuote");
+        _validateNumber(settleAmount, "settleAmount", "requestQuote");
+        _validateOptionalString(userIp, "userIp", "requestQuote");
         const quoteBody = {
-            "depositCoin": depositCoin,
-            "depositNetwork": depositNetwork,
-            "settleCoin": settleCoin,
-            "settleNetwork": settleNetwork,
-            "depositAmount": depositAmount,
-            "settleAmount": settleAmount,
+            depositCoin,
+            depositNetwork,
+            settleCoin,
+            settleNetwork,
+            depositAmount,
+            settleAmount,
             "affiliateId": this.SIDESHIFT_ID
         };
 
@@ -735,7 +489,7 @@ export class SideshiftAPI {
      * @param {string} [options.refundMemo] - Refund memo (optional)
      * @param {string} [options.externalId] - Integrations own ID (optional)
      * @param {string} [userIp] - User IP address (optional)
-     * @returns {Promise<Object>} Created shift data from API
+     * @returns {Promise<FixedShiftData>} Created shift data from API
      */
     async createFixedShift({
         settleAddress,
@@ -753,14 +507,14 @@ export class SideshiftAPI {
         refundMemo?: string;
         externalId?: string; // <-- Added this line
         userIp?: string;
-    }): Promise<object> {
-        this._validateString(settleAddress, "settleAddress", "createFixedShift");
-        this._validateString(quoteId, "quoteId", "createFixedShift");
-        this._validateOptinalString(settleMemo, "settleMemo", "createFixedShift");
-        this._validateOptinalString(refundAddress, "refundAddress", "createFixedShift");
-        this._validateOptinalString(refundMemo, "refundMemo", "createFixedShift");
-        this._validateOptinalString(externalId, "externalId", "createFixedShift");
-        this._validateOptinalString(userIp, "userIp", "createFixedShift");
+    }): Promise<FixedShiftData> {
+        _validateString(settleAddress, "settleAddress", "createFixedShift");
+        _validateString(quoteId, "quoteId", "createFixedShift");
+        _validateOptionalString(settleMemo, "settleMemo", "createFixedShift");
+        _validateOptionalString(refundAddress, "refundAddress", "createFixedShift");
+        _validateOptionalString(refundMemo, "refundMemo", "createFixedShift");
+        _validateOptionalString(externalId, "externalId", "createFixedShift");
+        _validateOptionalString(userIp, "userIp", "createFixedShift");
 
         const fixedShiftBody = {
             settleAddress,
@@ -769,7 +523,7 @@ export class SideshiftAPI {
             ...(settleMemo && { settleMemo }),
             ...(refundAddress && { refundAddress }),
             ...(refundMemo && { refundMemo }),
-            ...(externalId && { externalId }),
+            ...(externalId && { externalId })
         };
 
         return await this._post(`${this.BASE_URL}/shifts/fixed`, this._getSpecialHeader(userIp), fixedShiftBody);
@@ -788,7 +542,7 @@ export class SideshiftAPI {
      * @param {string} [options.refundMemo] - Refund memo (optional)
      * @param {string} [options.externalId] - Integrations own ID (optional)
      * @param {string} [userIp] - User IP address (optional)
-     * @returns {Promise<Object>} Created shift data from API
+     * @returns {Promise<VariableShiftData>} Created shift data from API
      */
     async createVariableShift({
         settleAddress,
@@ -812,17 +566,17 @@ export class SideshiftAPI {
         refundMemo?: string;
         externalId?: string; // <-- Added this line
         userIp?: string;
-    }): Promise<object> {
-        this._validateString(settleAddress, "settleAddress", "createVariableShift");
-        this._validateString(settleCoin, "settleCoin", "createVariableShift");
-        this._validateString(settleNetwork, "settleNetwork", "createVariableShift");
-        this._validateString(depositCoin, "depositCoin", "createVariableShift");
-        this._validateString(depositNetwork, "depositNetwork", "createVariableShift");
-        this._validateOptinalString(refundAddress, "refundAddress", "createVariableShift");
-        this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
-        this._validateOptinalString(refundMemo, "refundMemo", "createVariableShift");
-        this._validateOptinalString(externalId, "externalId", "createVariableShift");
-        this._validateOptinalString(userIp, "userIp", "createVariableShift");
+    }): Promise<VariableShiftData> {
+        _validateString(settleAddress, "settleAddress", "createVariableShift");
+        _validateString(settleCoin, "settleCoin", "createVariableShift");
+        _validateString(settleNetwork, "settleNetwork", "createVariableShift");
+        _validateString(depositCoin, "depositCoin", "createVariableShift");
+        _validateString(depositNetwork, "depositNetwork", "createVariableShift");
+        _validateOptionalString(refundAddress, "refundAddress", "createVariableShift");
+        _validateOptionalString(settleMemo, "settleMemo", "createVariableShift");
+        _validateOptionalString(refundMemo, "refundMemo", "createVariableShift");
+        _validateOptionalString(externalId, "externalId", "createVariableShift");
+        _validateOptionalString(userIp, "userIp", "createVariableShift");
 
         const variableShiftBody = {
             settleAddress,
@@ -834,7 +588,7 @@ export class SideshiftAPI {
             ...(settleMemo && { settleMemo }),
             ...(refundAddress && { refundAddress }),
             ...(refundMemo && { refundMemo }),
-            ...(externalId && { externalId }),
+            ...(externalId && { externalId })
         };
 
         return await this._post(`${this.BASE_URL}/shifts/variable`, this._getSpecialHeader(userIp), variableShiftBody);
@@ -847,7 +601,7 @@ export class SideshiftAPI {
      * @param {string} options.shiftId - Shift ID
      * @param {string} options.refundAddress - Refund address
      * @param {string} [options.refundMemo] - Refund memo (optional)
-     * @returns {Promise<Object>} Update result from API
+     * @returns {Promise<RefundData>} Update result from API
      */
     async setRefundAddress({
         shiftId,
@@ -857,10 +611,10 @@ export class SideshiftAPI {
         shiftId: string;
         refundAddress: string;
         refundMemo?: string;
-    }): Promise<object> {
-        this._validateString(shiftId, "shiftId", "setRefundAddress");
-        this._validateString(refundAddress, "refundAddress", "setRefundAddress");
-        this._validateOptinalString(refundMemo, "refundMemo", "setRefundAddress");
+    }): Promise<RefundData> {
+        _validateString(shiftId, "shiftId", "setRefundAddress");
+        _validateString(refundAddress, "refundAddress", "setRefundAddress");
+        _validateOptionalString(refundMemo, "refundMemo", "setRefundAddress");
 
         const bodyObj = {
             "address": refundAddress,
@@ -876,7 +630,7 @@ export class SideshiftAPI {
      * @returns {Promise<Object>} Cancel result from API
      */
     async cancelOrder(orderId: string): Promise<object> {
-        this._validateString(orderId, "orderId", "cancelOrder");
+        _validateString(orderId, "orderId", "cancelOrder");
 
         const bodyObj = {
             "orderId": orderId
@@ -896,7 +650,7 @@ export class SideshiftAPI {
     * @param {string} options.cancelUrl - Cancel URL
     * @param {string} [options.settleMemo] - Settle memo (optional)
     * @param {string} [userIp] - User IP address (optional)
-    * @returns {Promise<Object>} Checkout data from API
+    * @returns {Promise<CheckoutData>} Checkout data from API
     */
     async createCheckout({
         settleCoin,
@@ -916,15 +670,15 @@ export class SideshiftAPI {
         cancelUrl: string;
         settleMemo?: string;
         userIp?: string;
-    }): Promise<object> {
-        this._validateString(settleCoin, "settleCoin", "createCheckout");
-        this._validateString(settleNetwork, "settleNetwork", "createCheckout");
-        this._validateNumber(settleAmount, "settleAmount", "createCheckout");
-        this._validateString(settleAddress, "settleAddress", "createCheckout");
-        this._validateString(successUrl, "successUrl", "createCheckout");
-        this._validateString(cancelUrl, "cancelUrl", "createCheckout");
-        this._validateOptinalString(settleMemo, "settleMemo", "createCheckout");
-        this._validateOptinalString(userIp, "userIp", "createCheckout");
+    }): Promise<CheckoutData> {
+        _validateString(settleCoin, "settleCoin", "createCheckout");
+        _validateString(settleNetwork, "settleNetwork", "createCheckout");
+        _validateNumber(settleAmount, "settleAmount", "createCheckout");
+        _validateString(settleAddress, "settleAddress", "createCheckout");
+        _validateString(successUrl, "successUrl", "createCheckout");
+        _validateString(cancelUrl, "cancelUrl", "createCheckout");
+        _validateOptionalString(settleMemo, "settleMemo", "createCheckout");
+        _validateOptionalString(userIp, "userIp", "createCheckout");
 
         const checkoutBody = {
             settleCoin,
