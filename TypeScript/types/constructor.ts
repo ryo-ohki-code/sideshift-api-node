@@ -8,5 +8,5 @@ export interface SideshiftAPIOptions {
         retryDelay?: number;
         retryBackoff?: number;
         retryCappedDelay?: number;
-    }; 
+    }; // ? add to allow null for no retries || null; 
 }

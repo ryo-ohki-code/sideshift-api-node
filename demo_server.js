@@ -18,12 +18,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Load sideshift module
-const SideshiftAPI = require('./sideshiftAPI.js');
+const SideshiftAPI = require('./Compiled/sideshift-api.js');
 
 const SIDESHIFT_ID = process.env.SIDESHIFT_ID; //"Your_shideshift_ID"; 
 const SIDESHIFT_SECRET = process.env.SIDESHIFT_SECRET; // "Your_shideshift_secret";
 
-const sideshift = new SideshiftAPI({ secret: SIDESHIFT_SECRET, id: SIDESHIFT_ID, commisssionRate: "1", verbose: true });
+const sideshift = new SideshiftAPI({
+	secret: SIDESHIFT_SECRET,
+	id: SIDESHIFT_ID,
+	commisssionRate: "1", // Optional - From 0 to 2
+	verbose: true, // Optional
+	// retries: {
+	// 	maxRetries: 5,
+	// 	retryDelay: 2000,
+	// 	retryBackoff: 2,
+	// 	retryCappedDelay: 10000
+	// } // Optional retries settings
+});
 
 
 // IP address validation

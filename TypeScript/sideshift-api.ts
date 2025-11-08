@@ -20,13 +20,19 @@ import {
     VariableShiftData,
     RefundData,
     CheckoutData
-} from './types/shifts';
+} from './types/shifts-get';
+
+import {
+    RequestQuote,
+    CreateFixedShift,
+    CreateVariableShift,
+    SetRefundAddress,
+    CreateCheckout
+} from './types/shifts-post';
 
 import { _filterHeaders, DEFAULT_HEADERS, HEADER_WITH_TOKEN, HEADER_COMMISSION } from './utils/headers';
 import { _validateString, _validateOptionalString, _validateNumber, _validateArray } from './utils/validationHelpers';
-import { _handleResponse } from './utils/responseHandler';
-import { _shouldRetry, _calculateBackoffDelay, _delay } from './utils/retries';
-import { _errorMsg, _createError } from './utils/error';
+import { _request, _requestImage, _post, _updateRequestConfig } from './utils/request';
 
 export class SideshiftAPI {
     private SIDESHIFT_ID: string;
@@ -66,7 +72,7 @@ export class SideshiftAPI {
             throw new Error(`SIDESHIFT_ID must be a non-empty string. Provided: ${id}`);
         }
 
-        // this.SIDESHIFT_\SECRET = secret;
+        /** this.SIDESHIFT_\SECRET = secret; */
         this.SIDESHIFT_ID = id;
         this.COMMISSION_RATE = String(commissionRate);
 
@@ -80,6 +86,7 @@ export class SideshiftAPI {
         this.verbose = !!verbose;
 
         this.defaultTimeOut = 10000; // 10 seconds
+
 
         /** Header configurations */
         this.HEADER = DEFAULT_HEADERS;
@@ -108,6 +115,17 @@ export class SideshiftAPI {
 
         /** Base URL */
         this.BASE_URL = "https://sideshift.ai/api/v2";
+
+         /** Update the request utility with this instance's config */
+        _updateRequestConfig({
+            retryDelay: this.retryDelay,
+            retryBackoff: this.retryBackoff,
+            maxRetries: this.maxRetries,
+            retryCappedDelay: this.retryCappedDelay,
+            defaultTimeOut: this.defaultTimeOut,
+            verbose: this.verbose,
+            BASE_URL: this.BASE_URL
+        });
     }
 
     /**
@@ -124,190 +142,15 @@ export class SideshiftAPI {
         };
     }
 
-    /**
-     * Make an API request
-     * @private
-     * @param {string} url - The API endpoint URL
-     * @param {Object} options - Fetch options
-     * @param {Number} retries - Number of retry done
-     * @returns {Promise<Object>} Response data or error object
-     */
-    private async _request(url: string, options: any = {}, retries: number = 0): Promise<any> {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            if (!controller.signal.aborted) {
-                controller.abort();
-            }
-        }, this.defaultTimeOut);
-
-        try {
-            if (!url || typeof url !== 'string') {
-                throw new Error('Invalid URL provided');
-            }
-
-            const response = await fetch(url, {
-                ...options,
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            const handledResponse = await _handleResponse(response, url, options, this.verbose);
-
-            if (url === `${this.BASE_URL}/cancel-order` && handledResponse.status === 204) {
-                let orderId = null;
-                if (options?.body && typeof options?.body === 'string') {
-                    try {
-                        const parsedBody = JSON.parse(options.body);
-                        orderId = parsedBody.orderId;
-                    } catch (e) {
-                        if (this.verbose) console.error('Failed to parse request body:', e);
-                    }
-                }
-                return { success: true, orderId };
-            }
-
-            if (typeof handledResponse.json !== 'function') {
-                throw new Error('Fetch response is not a valid json object');
-            }
-
-            return await handledResponse.json();
-        } catch (err: any) {
-            clearTimeout(timeoutId);
-            if (!controller.signal.aborted) {
-                controller.abort();
-            }
-
-            // Retry on GET method only
-            if (options.method !== 'POST') {
-                if (retries > this.maxRetries) {
-                    throw new Error('Max retry timeout exceeded');
-                }
-
-                // Retry on specific types of errors
-                const shouldRetry = retries < this.maxRetries && _shouldRetry(err);
-
-                if (shouldRetry) {
-                    // const delay = this._calculateBackoffDelay(retries);
-                    const delay = _calculateBackoffDelay(
-                        retries,
-                        this.retryDelay,
-                        this.retryBackoff,
-                        this.maxRetries,
-                        this.retryCappedDelay
-                    )
-                    if (this.verbose) console.warn(`Request failed ${retries}/${this.maxRetries}, retrying in ${delay}ms...`, err.message);
-
-                    await _delay(delay);
-                    return this._request(url, options, retries + 1);
-                }
-            }
-
-            const error = _createError(`Fetch API error: ${err.error?.message || err.message || err}`,
-                null,
-                url,
-                options,
-                err
-            );
-
-            throw error;
-        }
-    }
-
-    /**
-     * Make an image API request
-     * @private
-     * @param {string} url - The API endpoint URL
-     * @param {Object} options - Fetch options
-     * @returns {Promise<Blob|Object>} Image blob or error object
-     */
-    private async _requestImage(url: string, options: any = {}, retries: number = 0): Promise<Blob | object> {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            if (!controller.signal.aborted) {
-                controller.abort();
-            }
-        }, this.defaultTimeOut);
-
-        try {
-            const response = await fetch(url, {
-                ...options,
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            const handledResponse = await _handleResponse(response, url, options, this.verbose);
-
-            try {
-                if (typeof handledResponse.blob !== 'function') {
-                    throw new Error('Fetch response is not a valid blob object');
-                }
-                return await handledResponse.blob();
-            } catch (e: any) {
-                const error = _createError(`Failed to process image response: ${e.message || e}`,
-                    response,
-                    url,
-                    options,
-                    e
-                );
-                throw error;
-            }
-        } catch (err: any) {
-            clearTimeout(timeoutId);
-            if (!controller.signal.aborted) {
-                controller.abort();
-            }
-            // Retry logic
-            const shouldRetry = retries < this.maxRetries && _shouldRetry(err);
-
-            if (shouldRetry) {
-                // const delay = this._calculateBackoffDelay(retries);
-                const delay = _calculateBackoffDelay(
-                    retries,
-                    this.retryDelay,
-                    this.retryBackoff,
-                    this.maxRetries,
-                    this.retryCappedDelay
-                )
-                if (this.verbose) console.warn(`Image request failed ${retries}/${this.maxRetries}, retrying in ${delay}ms...`, err.message);
-
-                await _delay(delay);
-                return this._requestImage(url, options, retries + 1);
-            }
-
-            const error = _createError(`Fetch API image error: ${err.error?.message || err.message || err}`,
-                null,
-                url,
-                options,
-                err
-            );
-            throw error;
-        }
-    }
-
-    /**
-     * Sends a POST request to the specified URL with the given body and headers
-     * @private
-     * @param {string} url - The API endpoint URL
-     * @param {Object} headers - The headers to include in the request
-     * @param {Object} body - The request body to send
-     * @returns {Promise<Response>} The fetch response object
-     */
-    private async _post(url: string, headers: any, body: any): Promise<any> {
-        return this._request(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body)
-        });
-    }
-
 
     /** API functions - GET */
+
     /**
      * Get list of supported coins
      * @returns {Promise<Object>} Coins data from API
      */
     async getCoins(): Promise<object> {
-        return this._request(`${this.BASE_URL}/coins`, this.requestHeader);
+        return _request(`${this.BASE_URL}/coins`, this.requestHeader);
     }
 
     /**
@@ -317,7 +160,7 @@ export class SideshiftAPI {
      */
     async getCoinIcon(coin: string): Promise<Blob | object> {
         _validateString(coin, "coin", "getCoinIcon");
-        return this._requestImage(`${this.BASE_URL}/coins/icon/${coin}`, this.imageHeader);
+        return _requestImage(`${this.BASE_URL}/coins/icon/${coin}`, this.imageHeader);
     }
 
     /**
@@ -325,7 +168,7 @@ export class SideshiftAPI {
      * @returns {Promise<Object>} Permissions data from API
      */
     async getPermissions(): Promise<object> {
-        return this._request(`${this.BASE_URL}/permissions`, this.requestHeader);
+        return _request(`${this.BASE_URL}/permissions`, this.requestHeader);
     }
 
     /**
@@ -345,7 +188,7 @@ export class SideshiftAPI {
         if (amount) {
             queryParams.append('amount', Number(amount).toString());
         }
-        return this._request(`${this.BASE_URL}/pair/${from}/${to}/?${queryParams}`, this.requestHeaderCommission);
+        return _request(`${this.BASE_URL}/pair/${from}/${to}/?${queryParams}`, this.requestHeaderCommission);
     }
 
     /**
@@ -359,7 +202,7 @@ export class SideshiftAPI {
             pairs: arrayOfCoins.join(','), // 'btc-mainnet,usdc-bsc,bch,eth'
             affiliateId: this.SIDESHIFT_ID,
         });
-        return this._request(`${this.BASE_URL}/pairs?${queryParams}`, this.requestHeaderCommission);
+        return _request(`${this.BASE_URL}/pairs?${queryParams}`, this.requestHeaderCommission);
     }
 
     /**
@@ -369,7 +212,7 @@ export class SideshiftAPI {
      */
     async getShift(shiftId: string): Promise<ShiftData> {
         _validateString(shiftId, "shiftId", "getShift");
-        return this._request(`${this.BASE_URL}/shifts/${shiftId}`, this.requestHeader);
+        return _request(`${this.BASE_URL}/shifts/${shiftId}`, this.requestHeader);
     }
 
     /**
@@ -382,7 +225,7 @@ export class SideshiftAPI {
         const queryParams = new URLSearchParams({
             ids: arrayOfIds.join(',') // 'f173118220f1461841da,dda3867168da23927b62'
         });
-        return this._request(`${this.BASE_URL}/shifts?${queryParams}`, this.requestHeader);
+        return _request(`${this.BASE_URL}/shifts?${queryParams}`, this.requestHeader);
     }
 
     /**
@@ -396,9 +239,9 @@ export class SideshiftAPI {
             _validateNumber(limitNumber, "limit", "getRecentShifts");
             const clampedLimit = Math.min(Math.max(limitNumber || 10, 1), 100);
             const queryParams = new URLSearchParams({ limit: clampedLimit.toString() });
-            return this._request(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
+            return _request(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
         } else {
-            return this._request(`${this.BASE_URL}/recent-shifts`, this.requestHeader);
+            return _request(`${this.BASE_URL}/recent-shifts`, this.requestHeader);
         }
     }
 
@@ -407,7 +250,7 @@ export class SideshiftAPI {
      * @returns {Promise<XaiStatsData>} XAI stats data from API
      */
     async getXaiStats(): Promise<XaiStatsData> {
-        return this._request(`${this.BASE_URL}/xai/stats`, this.requestHeader);
+        return _request(`${this.BASE_URL}/xai/stats`, this.requestHeader);
     }
 
     /**
@@ -415,7 +258,7 @@ export class SideshiftAPI {
      * @returns {Promise<AccountData>} Account data from API
      */
     async getAccount(): Promise<AccountData> {
-        return this._request(`${this.BASE_URL}/account`, this.requestHeaderWithToken);
+        return _request(`${this.BASE_URL}/account`, this.requestHeaderWithToken);
     }
 
     /**
@@ -425,11 +268,12 @@ export class SideshiftAPI {
      */
     async getCheckout(checkoutId: string): Promise<CheckoutData> {
         _validateString(checkoutId, "checkoutId", "getCheckout");
-        return this._request(`${this.BASE_URL}/checkout/${checkoutId}`, this.requestHeaderWithToken);
+        return _request(`${this.BASE_URL}/checkout/${checkoutId}`, this.requestHeaderWithToken);
     }
 
 
     /** API functions - POST */
+    
     /**
      * Request a quote for a shift
      * @param {Object} options - Configuration options
@@ -450,15 +294,7 @@ export class SideshiftAPI {
         depositAmount,
         settleAmount,
         userIp
-    }: {
-        depositCoin: string;
-        depositNetwork: string;
-        settleCoin: string;
-        settleNetwork: string;
-        depositAmount: number;
-        settleAmount: number;
-        userIp?: string;
-    }): Promise<QuoteData> {
+    }: RequestQuote): Promise<QuoteData> {
         _validateString(depositCoin, "depositCoin", "requestQuote");
         _validateString(depositNetwork, "depositNetwork", "requestQuote");
         _validateString(settleCoin, "settleCoin", "requestQuote");
@@ -476,7 +312,7 @@ export class SideshiftAPI {
             "affiliateId": this.SIDESHIFT_ID
         };
 
-        return await this._post(`${this.BASE_URL}/quotes`, this._getSpecialHeader(userIp), quoteBody);
+        return await _post(`${this.BASE_URL}/quotes`, this._getSpecialHeader(userIp), quoteBody);
     }
 
     /**
@@ -499,15 +335,7 @@ export class SideshiftAPI {
         refundMemo,
         externalId,
         userIp
-    }: {
-        settleAddress: string;
-        quoteId: string;
-        settleMemo?: string;
-        refundAddress?: string;
-        refundMemo?: string;
-        externalId?: string; // <-- Added this line
-        userIp?: string;
-    }): Promise<FixedShiftData> {
+    }: CreateFixedShift): Promise<FixedShiftData> {
         _validateString(settleAddress, "settleAddress", "createFixedShift");
         _validateString(quoteId, "quoteId", "createFixedShift");
         _validateOptionalString(settleMemo, "settleMemo", "createFixedShift");
@@ -526,7 +354,7 @@ export class SideshiftAPI {
             ...(externalId && { externalId })
         };
 
-        return await this._post(`${this.BASE_URL}/shifts/fixed`, this._getSpecialHeader(userIp), fixedShiftBody);
+        return await _post(`${this.BASE_URL}/shifts/fixed`, this._getSpecialHeader(userIp), fixedShiftBody);
     }
 
     /**
@@ -555,18 +383,7 @@ export class SideshiftAPI {
         refundMemo,
         externalId,
         userIp
-    }: {
-        settleAddress: string;
-        settleCoin: string;
-        settleNetwork: string;
-        depositCoin: string;
-        depositNetwork: string;
-        refundAddress?: string;
-        settleMemo?: string;
-        refundMemo?: string;
-        externalId?: string; // <-- Added this line
-        userIp?: string;
-    }): Promise<VariableShiftData> {
+    }: CreateVariableShift): Promise<VariableShiftData> {
         _validateString(settleAddress, "settleAddress", "createVariableShift");
         _validateString(settleCoin, "settleCoin", "createVariableShift");
         _validateString(settleNetwork, "settleNetwork", "createVariableShift");
@@ -591,7 +408,7 @@ export class SideshiftAPI {
             ...(externalId && { externalId })
         };
 
-        return await this._post(`${this.BASE_URL}/shifts/variable`, this._getSpecialHeader(userIp), variableShiftBody);
+        return await _post(`${this.BASE_URL}/shifts/variable`, this._getSpecialHeader(userIp), variableShiftBody);
     }
 
 
@@ -607,11 +424,7 @@ export class SideshiftAPI {
         shiftId,
         refundAddress,
         refundMemo
-    }: {
-        shiftId: string;
-        refundAddress: string;
-        refundMemo?: string;
-    }): Promise<RefundData> {
+    }: SetRefundAddress): Promise<RefundData> {
         _validateString(shiftId, "shiftId", "setRefundAddress");
         _validateString(refundAddress, "refundAddress", "setRefundAddress");
         _validateOptionalString(refundMemo, "refundMemo", "setRefundAddress");
@@ -621,7 +434,7 @@ export class SideshiftAPI {
             ...(refundMemo && { "memo": refundMemo })
         };
 
-        return await this._post(`${this.BASE_URL}/shifts/${shiftId}/set-refund-address`, this.HEADER_WITH_TOKEN, bodyObj);
+        return await _post(`${this.BASE_URL}/shifts/${shiftId}/set-refund-address`, this.HEADER_WITH_TOKEN, bodyObj);
     }
 
     /**
@@ -636,7 +449,7 @@ export class SideshiftAPI {
             "orderId": orderId
         };
 
-        return await this._post(`${this.BASE_URL}/cancel-order`, this.HEADER_WITH_TOKEN, bodyObj);
+        return await _post(`${this.BASE_URL}/cancel-order`, this.HEADER_WITH_TOKEN, bodyObj);
     }
 
     /**
@@ -661,16 +474,7 @@ export class SideshiftAPI {
         cancelUrl,
         settleMemo,
         userIp
-    }: {
-        settleCoin: string;
-        settleNetwork: string;
-        settleAmount: number;
-        settleAddress: string;
-        successUrl: string;
-        cancelUrl: string;
-        settleMemo?: string;
-        userIp?: string;
-    }): Promise<CheckoutData> {
+    }: CreateCheckout): Promise<CheckoutData> {
         _validateString(settleCoin, "settleCoin", "createCheckout");
         _validateString(settleNetwork, "settleNetwork", "createCheckout");
         _validateNumber(settleAmount, "settleAmount", "createCheckout");
@@ -691,7 +495,7 @@ export class SideshiftAPI {
             ...(settleMemo && { settleMemo })
         };
 
-        return await this._post(`${this.BASE_URL}/checkout`, this._getSpecialHeader(userIp), checkoutBody);
+        return await _post(`${this.BASE_URL}/checkout`, this._getSpecialHeader(userIp), checkoutBody);
     }
 }
 
