@@ -770,3 +770,4 @@ class SideshiftAPI {
 }
 
 export { SideshiftAPI, SideshiftAPI as default };
+//# sourceMappingURL=index.js.map

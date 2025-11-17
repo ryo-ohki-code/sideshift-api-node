@@ -773,3 +773,4 @@ class SideshiftAPI {
 module.exports = SideshiftAPI;
 
 exports.SideshiftAPI = SideshiftAPI;
+//# sourceMappingURL=index.cjs.map

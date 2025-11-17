@@ -1,5 +1,5 @@
 interface TokenDetails {
-    network: NetworkDetails;
+    [network: string]: NetworkDetails;
 }
 interface NetworkDetails {
     contractAddress: string;
@@ -8,11 +8,12 @@ interface NetworkDetails {
 export interface Coins {
     networks: string[];
     coin: string;
+    mainnet?: string;
     name: string;
-    hasMemo: boolean;
+    hasMemo?: boolean;
     fixedOnly: string[] | boolean;
     variableOnly: string[] | boolean;
-    tokenDetails: TokenDetails;
+    tokenDetails?: TokenDetails;
     networksWithMemo: string[];
     depositOffline: string[] | boolean;
     settleOffline: string[] | boolean;
@@ -21,13 +22,13 @@ export interface Permissions {
     createShift: boolean;
 }
 export interface PairData {
-    min: string;
-    max: string;
-    rate: string;
     depositCoin: string;
     settleCoin: string;
     depositNetwork: string;
     settleNetwork: string;
+    min: string;
+    max: string;
+    rate: string;
 }
 export interface RecentShiftData {
     createdAt: string;

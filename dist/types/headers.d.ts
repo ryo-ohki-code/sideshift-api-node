@@ -7,7 +7,7 @@ export interface Header_Base {
 export interface Header_With_Token extends Header_Base {
     "x-sideshift-secret": string;
 }
-interface Header_Commission extends Header_With_Token {
+export interface Header_Commission extends Header_With_Token {
     commissionRate?: string;
 }
 export type HEADERS = Header_Base | Header_With_Token | Header_Commission;
@@ -20,5 +20,4 @@ export interface Image_Headers {
     };
     method: "GET";
 }
-export {};
 //# sourceMappingURL=headers.d.ts.map
