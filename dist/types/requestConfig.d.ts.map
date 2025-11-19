@@ -1,1 +1,0 @@
-{"version":3,"file":"requestConfig.d.ts","sourceRoot":"","sources":["../../src/types/requestConfig.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,aAAa;IAC1B,UAAU,EAAE,MAAM,CAAC;IACnB,YAAY,EAAE,MAAM,CAAC;IACrB,UAAU,EAAE,MAAM,CAAC;IACnB,gBAAgB,EAAE,MAAM,CAAC;IACzB,cAAc,EAAE,MAAM,CAAC;IACvB,OAAO,EAAE,OAAO,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAC;CACpB"}

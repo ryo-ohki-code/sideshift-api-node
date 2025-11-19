@@ -1,23 +1,19 @@
 export interface Header_Base {
-    headers?: {
-        "Content-Type": string;
-    };
-    method?: "GET" | "POST";
+    "Content-Type": string;
 }
 export interface Header_With_Token extends Header_Base {
     "x-sideshift-secret": string;
 }
 export interface Header_Commission extends Header_With_Token {
-    commissionRate?: string;
+    commissionRate?: string | undefined;
 }
-export type HEADERS = Header_Base | Header_With_Token | Header_Commission;
 export interface Special_Header extends Header_Commission {
-    "x-user-ip"?: string;
+    "x-user-ip"?: string | undefined;
 }
+export type Headers = Header_Base | Header_With_Token | Header_Commission | Special_Header;
 export interface Image_Headers {
     headers: {
-        "Accept": string;
+        "Accept": "image/svg" | "image/png";
     };
     method: "GET";
 }
-//# sourceMappingURL=headers.d.ts.map

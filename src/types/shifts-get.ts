@@ -29,7 +29,7 @@ interface BaseShiftData {
     settleAmount?: string;
     type: 'fixed' | 'variable';
     expiresAt: string;
-    status: string; // 'expired' | 'refund' | 'refunded' | 'settling' | 'settled' | 'waiting' | 'pending' | 'processing'
+    status: string; // 'expired' | 'refund' | 'refunded' | 'settling' | 'settled' | 'waiting' | 'pending' 'processing' | 
     externalId?: string;
     updatedAt?: string;
     depositHash?: string;

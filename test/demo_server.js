@@ -147,7 +147,8 @@ app.get('/pair/:from/:to', async (req, res) => {
 	try {
 		const { from, to } = req.params;
 		const amount = req.query.amount || null;
-		const pair = await sideshift.getPair(from, to, amount);
+		const customCommissionRate = req.query.customCommissionRate || null;
+		const pair = await sideshift.getPair(from, to, amount, customCommissionRate);
 		res.json(pair);
 	} catch (error) {
 		res.status(500).json({ error: 'Failed to fetch pair info' });
@@ -216,8 +217,8 @@ app.get('/checkout/:id', async (req, res) => {
 // Get multiple pairs
 app.post('/pairs', async (req, res) => {
 	try {
-		const { coins } = req.body; // e.g., ['btc-mainnet', 'eth-mainnet']
-		const pairs = await sideshift.getPairs(coins);
+		const { coins, customCommissionRate } = req.body; // e.g., ['btc-mainnet', 'eth-mainnet']
+		const pairs = await sideshift.getPairs(coins, customCommissionRate);
 		res.json(pairs);
 	} catch (error) {
 		res.status(500).json({ error: 'Failed to fetch pairs' });
@@ -244,7 +245,8 @@ app.post('/quotes', async (req, res) => {
 			settleCoin,
 			settleNetwork,
 			depositAmount,
-			settleAmount
+			settleAmount,
+			customCommissionRate
 		} = req.body;
 
 		const quote = await sideshift.requestQuote({
@@ -254,7 +256,8 @@ app.post('/quotes', async (req, res) => {
 			settleNetwork,
 			depositAmount,
 			settleAmount,
-			userIp: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address,
+			customCommissionRate
 		});
 
 		res.json(quote);
@@ -272,7 +275,8 @@ app.post('/shifts/fixed', async (req, res) => {
 			settleMemo,
 			refundAddress,
 			refundMemo,
-			externalId
+			externalId,
+			customCommissionRate
 		} = req.body;
 
 		const shift = await sideshift.createFixedShift({
@@ -282,7 +286,8 @@ app.post('/shifts/fixed', async (req, res) => {
 			refundAddress,
 			refundMemo,
 			externalId,
-			userIp: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address,
+			customCommissionRate
 		});
 
 		res.json(shift);
@@ -303,7 +308,8 @@ app.post('/shifts/variable', async (req, res) => {
 			refundAddress,
 			settleMemo,
 			refundMemo,
-			externalId
+			externalId,
+			customCommissionRate
 		} = req.body;
 
 		const shift = await sideshift.createVariableShift({
@@ -316,7 +322,8 @@ app.post('/shifts/variable', async (req, res) => {
 			settleMemo,
 			refundMemo,
 			externalId,
-			userIp: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address,
+			customCommissionRate
 		});
 
 		res.json(shift);
@@ -363,7 +370,8 @@ app.post('/checkout', async (req, res) => {
 			settleAddress,
 			successUrl,
 			cancelUrl,
-			settleMemo
+			settleMemo,
+			customCommissionRate
 		} = req.body;
 
 		const checkout = await sideshift.createCheckout({
@@ -374,7 +382,8 @@ app.post('/checkout', async (req, res) => {
 			successUrl,
 			cancelUrl,
 			settleMemo,
-			userIp: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address,
+			customCommissionRate
 		});
 
 		res.json(checkout);

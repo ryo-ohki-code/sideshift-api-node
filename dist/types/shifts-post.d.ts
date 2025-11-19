@@ -7,6 +7,7 @@ export interface RequestQuote {
     depositAmount: number;
     settleAmount: number;
     userIp?: string;
+    customCommissionRate: string;
 }
 /** createFixedShift */
 export interface CreateFixedShift {
@@ -17,6 +18,7 @@ export interface CreateFixedShift {
     refundMemo?: string;
     externalId?: string;
     userIp?: string;
+    customCommissionRate: string;
 }
 /** createVariableShift */
 export interface CreateVariableShift {
@@ -30,6 +32,7 @@ export interface CreateVariableShift {
     refundMemo?: string;
     externalId?: string;
     userIp?: string;
+    customCommissionRate: string;
 }
 /** setRefundAddress */
 export interface SetRefundAddress {
@@ -47,5 +50,5 @@ export interface CreateCheckout {
     cancelUrl: string;
     settleMemo?: string;
     userIp?: string;
+    customCommissionRate: string;
 }
-//# sourceMappingURL=shifts-post.d.ts.map

@@ -20,4 +20,3 @@ export declare function _calculateBackoffDelay(retries: number, retryDelay: numb
  * @returns {Promise<void>} A promise that resolves after the specified delay
  */
 export declare function _delay(ms: number): Promise<void>;
-//# sourceMappingURL=retries.d.ts.map

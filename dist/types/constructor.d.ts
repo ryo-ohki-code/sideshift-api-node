@@ -10,4 +10,3 @@ export interface SideshiftAPIOptions {
         retryCappedDelay?: number;
     };
 }
-//# sourceMappingURL=constructor.d.ts.map

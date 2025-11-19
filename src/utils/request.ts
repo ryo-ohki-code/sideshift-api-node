@@ -1,3 +1,4 @@
+import { Headers } from './../types/headers';
 import { RequestConfig } from './../types/requestConfig';
 import { _handleResponse } from './responseHandler';
 import { _shouldRetry, _calculateBackoffDelay, _delay } from './retries';
@@ -23,7 +24,7 @@ let _BASE_URL: string;
  * @param {string} config.BASE_URL - Base URL for all API endpoints
  * @returns {RequestConfig} This function updates global configuration variables
  */
-export function _updateRequestConfig(config: RequestConfig) {
+export function _updateRequestConfig(config: RequestConfig): void {
     _retryDelay = config.retryDelay;
     _retryBackoff = config.retryBackoff;
     _maxRetries = config.maxRetries;
@@ -192,13 +193,26 @@ export async function _requestImage(url: string, options: any = {}, retries: num
 }
 
 /**
+ * Sends a GET request to the specified URL with the given headers
+ * @param {string} url - The API endpoint URL
+ * @param {Object} headers - The headers to include in the request
+ * @returns {Promise<Response>} The fetch response object
+ */
+export async function _get(url: string, headers: Headers): Promise<any> {
+    return _request(url, {
+        method: 'GET',
+        headers: headers,
+    });
+}
+
+/**
  * Sends a POST request to the specified URL with the given body and headers
  * @param {string} url - The API endpoint URL
  * @param {Object} headers - The headers to include in the request
  * @param {Object} body - The request body to send
  * @returns {Promise<Response>} The fetch response object
  */
-export async function _post(url: string, headers: any, body: any): Promise<any> {
+export async function _post(url: string, headers: Headers, body: any): Promise<any> {
     return _request(url, {
         method: 'POST',
         headers: headers,

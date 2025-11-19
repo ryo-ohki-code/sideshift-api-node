@@ -1,6 +1,6 @@
 {
   "name": "sideshift-api",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "A TypeScript REST API client library for interacting with Sideshift.ai API endpoints",
   "main": "dist/index.cjs",
   "module": "dist/index.js",

@@ -15,7 +15,7 @@ import {
     AccountData,
 } from './types/types';
 
-import { Special_Header } from './types/headers';
+import { Headers } from './types/headers';
 
 import {
     ShiftData,
@@ -34,9 +34,9 @@ import {
     CreateCheckout
 } from './types/shifts-post';
 
-import { _filterHeaders, DEFAULT_HEADERS, HEADER_WITH_TOKEN, HEADER_COMMISSION } from './utils/headers';
+import { _filterHeaders, DEFAULT_HEADERS, HEADER_WITH_TOKEN } from './utils/headers';
 import { _validateString, _validateOptionalString, _validateNumber, _validateArray } from './utils/validationHelpers';
-import { _request, _requestImage, _post, _updateRequestConfig } from './utils/request';
+import { _request, _requestImage, _post, _get, _updateRequestConfig } from './utils/request';
 
 
 export class SideshiftAPI {
@@ -53,12 +53,10 @@ export class SideshiftAPI {
 
     private HEADER: { "Content-Type": string };
     private HEADER_WITH_TOKEN: { "Content-Type": string; "x-sideshift-secret": string };
-    private HEADER_COMMISSION: { "Content-Type": string; "x-sideshift-secret": string; commissionRate?: string };
 
-    private imageHeader: { headers: { "Accept": "image/svg" }; method: "GET" };
-    private requestHeader: { headers: { "Content-Type": string }; method: "GET" };
-    private requestHeaderWithToken: { headers: { "Content-Type": string; "x-sideshift-secret": string }; method: "GET" };
-    private requestHeaderCommission: { headers: { "Content-Type": string; "x-sideshift-secret": string; commissionRate?: string }; method: "GET" };
+    private imageHeader: { headers: { "Accept": "image/svg" | "image/png" }; method: "GET" };
+    private requestHeader: { "Content-Type": string };
+    private requestHeaderWithToken: { "Content-Type": string; "x-sideshift-secret": string };
 
     private BASE_URL: string;
 
@@ -96,32 +94,20 @@ export class SideshiftAPI {
         /** Header configurations */
         this.HEADER = DEFAULT_HEADERS;
         this.HEADER_WITH_TOKEN = HEADER_WITH_TOKEN(secret);
-        this.HEADER_COMMISSION = HEADER_COMMISSION(secret, this.COMMISSION_RATE);
 
         this.imageHeader = {
             headers: { "Accept": "image/svg" },
             method: "GET"
         };
 
-        this.requestHeader = {
-            headers: this.HEADER,
-            method: "GET"
-        };
+        this.requestHeader = this.HEADER;
 
-        this.requestHeaderWithToken = {
-            headers: this.HEADER_WITH_TOKEN,
-            method: "GET"
-        };
-
-        this.requestHeaderCommission = {
-            headers: this.HEADER_COMMISSION,
-            method: "GET"
-        };
+        this.requestHeaderWithToken = this.HEADER_WITH_TOKEN;
 
         /** Base URL */
         this.BASE_URL = "https://sideshift.ai/api/v2";
 
-         /** Update the request utility with this instance's config */
+        /** Update the request utility with this instance's config */
         _updateRequestConfig({
             retryDelay: this.retryDelay,
             retryBackoff: this.retryBackoff,
@@ -134,16 +120,38 @@ export class SideshiftAPI {
     }
 
     /**
+     * Validate if a commission rate string contains a number between 0 and 2
+     * @private
+     * @param {string|null} [commissionRate] - The commission rate string to validate
+     * @returns {boolean} True if the commission rate is a valid number between 0 and 2 (inclusive), false otherwise
+     */
+    _isValidCommissionRate = (commissionRate?: string | number | null): string | null => {
+        if (!commissionRate || commissionRate === '') return null;
+
+        const num = Number(commissionRate);
+
+        // Check if it's a valid finite number between 0 and 2
+        if (Number.isFinite(num) && num >= 0 && num <= 2) {
+            return String(commissionRate);
+        }
+        return null;
+    };
+
+    /**
      * Get special headers with optional user IP
      * @private
-     * @param {string|null|undefined} userIp - The user's IP address
-     * @returns {Special_Header} The headers object with special headers and optional user IP
+     * @param {string|null} [userIp] - The user's IP address
+     * @param {string|null} [customCommissionRate] - Custom commissionRate for this request
+     * @returns {Headers} The headers object with special headers and optional user IP
      */
-    private _getSpecialHeader(userIp: string | null | undefined): Special_Header {
+    private _getSpecialHeader(options?: { userIp?: string | null, customCommissionRate?: string | number | null }): Headers {
+        const { userIp, customCommissionRate } = options || {};
+        const commissionRate = this._isValidCommissionRate(customCommissionRate) ?? this.COMMISSION_RATE;
+
         return {
-            ...this.HEADER_COMMISSION,
+            ...this.HEADER_WITH_TOKEN,
+            ...(commissionRate !== "0.5" && { commissionRate }),
             ...(userIp && { "x-user-ip": userIp }),
-            // ...(userIp !== null && userIp !== undefined && { "x-user-ip": userIp }),
         };
     }
 
@@ -155,7 +163,7 @@ export class SideshiftAPI {
      * @returns {Promise<Coins>} Coins data from API
      */
     async getCoins(): Promise<Coins> {
-        return _request(`${this.BASE_URL}/coins`, this.requestHeader);
+        return await _get(`${this.BASE_URL}/coins`, this.requestHeader);
     }
 
     /**
@@ -165,7 +173,7 @@ export class SideshiftAPI {
      */
     async getCoinIcon(coin: string): Promise<Blob | Object> {
         _validateString(coin, "coin", "getCoinIcon");
-        return _requestImage(`${this.BASE_URL}/coins/icon/${coin}`, this.imageHeader);
+        return await _requestImage(`${this.BASE_URL}/coins/icon/${coin}`, this.imageHeader);
     }
 
     /**
@@ -173,7 +181,7 @@ export class SideshiftAPI {
      * @returns {Promise<Permissions>} Permissions data from API
      */
     async getPermissions(): Promise<Permissions> {
-        return _request(`${this.BASE_URL}/permissions`, this.requestHeader);
+        return await _get(`${this.BASE_URL}/permissions`, this.requestHeader);
     }
 
     /**
@@ -183,7 +191,7 @@ export class SideshiftAPI {
      * @param {number} amount - Deposit amout, Without specifying an amount, the system will assume a deposit value of 500 USD
      * @returns {Promise<PairData>} Pair data from API
      */
-    async getPair(from: string, to: string, amount: number | null = null): Promise<PairData> {
+    async getPair(from: string, to: string, amount?: number | null, customCommissionRate?: string | null): Promise<PairData> {
         _validateString(from, "from", "getPair");
         _validateString(to, "to", "getPair");
         if (amount) _validateNumber(Number(amount), "amount", "getPair");
@@ -193,7 +201,7 @@ export class SideshiftAPI {
         if (amount) {
             queryParams.append('amount', Number(amount).toString());
         }
-        return _request(`${this.BASE_URL}/pair/${from}/${to}/?${queryParams}`, this.requestHeaderCommission);
+        return await _get(`${this.BASE_URL}/pair/${from}/${to}/?${queryParams}`, this._getSpecialHeader({ customCommissionRate }));
     }
 
     /**
@@ -201,13 +209,13 @@ export class SideshiftAPI {
      * @param {string[]} arrayOfCoins - Array of coin: "name-network", "BNB-bsc" "BTC-mainnet"
      * @returns {Promise<PairData[]>} Pair data from API
      */
-    async getPairs(arrayOfCoins: string[]): Promise<PairData[]> {
+    async getPairs(arrayOfCoins: string[], customCommissionRate?: string | null): Promise<PairData[]> {
         _validateArray(arrayOfCoins, "arrayOfCoins", "getPairs", "string");
         const queryParams = new URLSearchParams({
             pairs: arrayOfCoins.join(','), // 'btc-mainnet,usdc-bsc,bch,eth'
             affiliateId: this.SIDESHIFT_ID,
         });
-        return _request(`${this.BASE_URL}/pairs?${queryParams}`, this.requestHeaderCommission);
+        return await _get(`${this.BASE_URL}/pairs?${queryParams}`, this._getSpecialHeader({ customCommissionRate }));
     }
 
     /**
@@ -217,7 +225,7 @@ export class SideshiftAPI {
      */
     async getShift(shiftId: string): Promise<ShiftData> {
         _validateString(shiftId, "shiftId", "getShift");
-        return _request(`${this.BASE_URL}/shifts/${shiftId}`, this.requestHeader);
+        return await _get(`${this.BASE_URL}/shifts/${shiftId}`, this.requestHeader);
     }
 
     /**
@@ -230,7 +238,7 @@ export class SideshiftAPI {
         const queryParams = new URLSearchParams({
             ids: arrayOfIds.join(',') // 'f173118220f1461841da,dda3867168da23927b62'
         });
-        return _request(`${this.BASE_URL}/shifts?${queryParams}`, this.requestHeader);
+        return await _get(`${this.BASE_URL}/shifts?${queryParams}`, this.requestHeader);
     }
 
     /**
@@ -244,9 +252,9 @@ export class SideshiftAPI {
             _validateNumber(limitNumber, "limit", "getRecentShifts");
             const clampedLimit = Math.min(Math.max(limitNumber || 10, 1), 100);
             const queryParams = new URLSearchParams({ limit: clampedLimit.toString() });
-            return _request(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
+            return await _get(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
         } else {
-            return _request(`${this.BASE_URL}/recent-shifts`, this.requestHeader);
+            return await _get(`${this.BASE_URL}/recent-shifts`, this.requestHeader);
         }
     }
 
@@ -255,7 +263,7 @@ export class SideshiftAPI {
      * @returns {Promise<XaiStatsData>} XAI stats data from API
      */
     async getXaiStats(): Promise<XaiStatsData> {
-        return _request(`${this.BASE_URL}/xai/stats`, this.requestHeader);
+        return await _get(`${this.BASE_URL}/xai/stats`, this.requestHeader);
     }
 
     /**
@@ -263,7 +271,7 @@ export class SideshiftAPI {
      * @returns {Promise<AccountData>} Account data from API
      */
     async getAccount(): Promise<AccountData> {
-        return _request(`${this.BASE_URL}/account`, this.requestHeaderWithToken);
+        return await _get(`${this.BASE_URL}/account`, this.requestHeaderWithToken);
     }
 
     /**
@@ -273,12 +281,12 @@ export class SideshiftAPI {
      */
     async getCheckout(checkoutId: string): Promise<CheckoutData> {
         _validateString(checkoutId, "checkoutId", "getCheckout");
-        return _request(`${this.BASE_URL}/checkout/${checkoutId}`, this.requestHeaderWithToken);
+        return await _get(`${this.BASE_URL}/checkout/${checkoutId}`, this.requestHeaderWithToken);
     }
 
 
     /** API functions - POST */
-    
+
     /**
      * Request a quote for a shift
      * @param {Object} options - Configuration options
@@ -298,7 +306,8 @@ export class SideshiftAPI {
         settleNetwork,
         depositAmount,
         settleAmount,
-        userIp
+        userIp,
+        customCommissionRate
     }: RequestQuote): Promise<QuoteData> {
         _validateString(depositCoin, "depositCoin", "requestQuote");
         _validateString(depositNetwork, "depositNetwork", "requestQuote");
@@ -307,6 +316,7 @@ export class SideshiftAPI {
         _validateNumber(depositAmount, "depositAmount", "requestQuote");
         _validateNumber(settleAmount, "settleAmount", "requestQuote");
         _validateOptionalString(userIp, "userIp", "requestQuote");
+        _validateOptionalString(customCommissionRate, "customCommissionRate", "requestQuote");
         const quoteBody = {
             depositCoin,
             depositNetwork,
@@ -317,7 +327,7 @@ export class SideshiftAPI {
             "affiliateId": this.SIDESHIFT_ID
         };
 
-        return await _post(`${this.BASE_URL}/quotes`, this._getSpecialHeader(userIp), quoteBody);
+        return await _post(`${this.BASE_URL}/quotes`, this._getSpecialHeader({ userIp, customCommissionRate }), quoteBody);
     }
 
     /**
@@ -339,7 +349,8 @@ export class SideshiftAPI {
         refundAddress,
         refundMemo,
         externalId,
-        userIp
+        userIp,
+        customCommissionRate
     }: CreateFixedShift): Promise<FixedShiftData> {
         _validateString(settleAddress, "settleAddress", "createFixedShift");
         _validateString(quoteId, "quoteId", "createFixedShift");
@@ -348,6 +359,7 @@ export class SideshiftAPI {
         _validateOptionalString(refundMemo, "refundMemo", "createFixedShift");
         _validateOptionalString(externalId, "externalId", "createFixedShift");
         _validateOptionalString(userIp, "userIp", "createFixedShift");
+        _validateOptionalString(customCommissionRate, "customCommissionRate", "createFixedShift");
 
         const fixedShiftBody = {
             settleAddress,
@@ -359,7 +371,7 @@ export class SideshiftAPI {
             ...(externalId && { externalId })
         };
 
-        return await _post(`${this.BASE_URL}/shifts/fixed`, this._getSpecialHeader(userIp), fixedShiftBody);
+        return await _post(`${this.BASE_URL}/shifts/fixed`, this._getSpecialHeader({ userIp, customCommissionRate }), fixedShiftBody);
     }
 
     /**
@@ -387,7 +399,8 @@ export class SideshiftAPI {
         settleMemo,
         refundMemo,
         externalId,
-        userIp
+        userIp,
+        customCommissionRate
     }: CreateVariableShift): Promise<VariableShiftData> {
         _validateString(settleAddress, "settleAddress", "createVariableShift");
         _validateString(settleCoin, "settleCoin", "createVariableShift");
@@ -399,6 +412,7 @@ export class SideshiftAPI {
         _validateOptionalString(refundMemo, "refundMemo", "createVariableShift");
         _validateOptionalString(externalId, "externalId", "createVariableShift");
         _validateOptionalString(userIp, "userIp", "createVariableShift");
+        _validateOptionalString(customCommissionRate, "customCommissionRate", "createVariableShift");
 
         const variableShiftBody = {
             settleAddress,
@@ -413,7 +427,7 @@ export class SideshiftAPI {
             ...(externalId && { externalId })
         };
 
-        return await _post(`${this.BASE_URL}/shifts/variable`, this._getSpecialHeader(userIp), variableShiftBody);
+        return await _post(`${this.BASE_URL}/shifts/variable`, this._getSpecialHeader({ userIp, customCommissionRate }), variableShiftBody);
     }
 
 
@@ -478,7 +492,8 @@ export class SideshiftAPI {
         successUrl,
         cancelUrl,
         settleMemo,
-        userIp
+        userIp,
+        customCommissionRate
     }: CreateCheckout): Promise<CheckoutData> {
         _validateString(settleCoin, "settleCoin", "createCheckout");
         _validateString(settleNetwork, "settleNetwork", "createCheckout");
@@ -488,6 +503,7 @@ export class SideshiftAPI {
         _validateString(cancelUrl, "cancelUrl", "createCheckout");
         _validateOptionalString(settleMemo, "settleMemo", "createCheckout");
         _validateOptionalString(userIp, "userIp", "createCheckout");
+        _validateOptionalString(customCommissionRate, "customCommissionRate", "createCheckout");
 
         const checkoutBody = {
             settleCoin,
@@ -500,7 +516,7 @@ export class SideshiftAPI {
             ...(settleMemo && { settleMemo })
         };
 
-        return await _post(`${this.BASE_URL}/checkout`, this._getSpecialHeader(userIp), checkoutBody);
+        return await _post(`${this.BASE_URL}/checkout`, this._getSpecialHeader({ userIp, customCommissionRate }), checkoutBody);
     }
 }
 

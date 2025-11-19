@@ -7,7 +7,7 @@ See the source documentation for detailed response json and examples: https://do
 ## GET function
 
 ### getCoin()
-Returns the list of coins and their respective networks available on SideShift.ai.
+Returns the list of coins and their respective networks available on [SideShift.ai](https://sideshift.ai/a/9iuC2qrEj).
 
 **Example Response:**
 ```

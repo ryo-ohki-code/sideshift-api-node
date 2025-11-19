@@ -62,4 +62,3 @@ export interface AccountData {
     totalBalance: string;
 }
 export {};
-//# sourceMappingURL=types.d.ts.map

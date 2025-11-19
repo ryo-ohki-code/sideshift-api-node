@@ -97,4 +97,3 @@ export interface CheckoutData {
     cancelUrl: string;
 }
 export {};
-//# sourceMappingURL=shifts-get.d.ts.map

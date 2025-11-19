@@ -11,9 +11,3 @@ export declare const HEADER_WITH_TOKEN: (secret: string) => {
     "x-sideshift-secret": string;
     "Content-Type": string;
 };
-export declare const HEADER_COMMISSION: (secret: string, commissionRate: string) => {
-    commissionRate?: string | undefined;
-    "x-sideshift-secret": string;
-    "Content-Type": string;
-};
-//# sourceMappingURL=headers.d.ts.map

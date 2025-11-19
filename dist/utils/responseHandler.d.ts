@@ -8,4 +8,3 @@
  * @throws {Error} Throws an error with HTTP status details and error data when response is not ok
  */
 export declare function _handleResponse(response: Response, url: string, options: any, verbose: boolean): Promise<Response>;
-//# sourceMappingURL=responseHandler.d.ts.map

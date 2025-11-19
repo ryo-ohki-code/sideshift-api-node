@@ -1,3 +1,4 @@
+import { Headers } from './../types/headers';
 import { RequestConfig } from './../types/requestConfig';
 /**
  * Updates the request configuration for API calls
@@ -28,11 +29,17 @@ export declare function _request(url: string, options?: any, retries?: number): 
  */
 export declare function _requestImage(url: string, options?: any, retries?: number): Promise<Blob | object>;
 /**
+ * Sends a GET request to the specified URL with the given headers
+ * @param {string} url - The API endpoint URL
+ * @param {Object} headers - The headers to include in the request
+ * @returns {Promise<Response>} The fetch response object
+ */
+export declare function _get(url: string, headers: Headers): Promise<any>;
+/**
  * Sends a POST request to the specified URL with the given body and headers
  * @param {string} url - The API endpoint URL
  * @param {Object} headers - The headers to include in the request
  * @param {Object} body - The request body to send
  * @returns {Promise<Response>} The fetch response object
  */
-export declare function _post(url: string, headers: any, body: any): Promise<any>;
-//# sourceMappingURL=request.d.ts.map
+export declare function _post(url: string, headers: Headers, body: any): Promise<any>;

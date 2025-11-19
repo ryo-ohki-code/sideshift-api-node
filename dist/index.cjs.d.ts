@@ -16,18 +16,24 @@ export declare class SideshiftAPI {
     private defaultTimeOut;
     private HEADER;
     private HEADER_WITH_TOKEN;
-    private HEADER_COMMISSION;
     private imageHeader;
     private requestHeader;
     private requestHeaderWithToken;
-    private requestHeaderCommission;
     private BASE_URL;
     constructor({ secret, id, commissionRate, verbose, retries }: SideshiftAPIOptions);
     /**
+     * Validate if a commission rate string contains a number between 0 and 2
+     * @private
+     * @param {string|null} [commissionRate] - The commission rate string to validate
+     * @returns {boolean} True if the commission rate is a valid number between 0 and 2 (inclusive), false otherwise
+     */
+    _isValidCommissionRate: (commissionRate?: string | number | null) => string | null;
+    /**
      * Get special headers with optional user IP
      * @private
-     * @param {string|null|undefined} userIp - The user's IP address
-     * @returns {Special_Header} The headers object with special headers and optional user IP
+     * @param {string|null} [userIp] - The user's IP address
+     * @param {string|null} [customCommissionRate] - Custom commissionRate for this request
+     * @returns {Headers} The headers object with special headers and optional user IP
      */
     private _getSpecialHeader;
     /** API functions - GET */
@@ -54,13 +60,13 @@ export declare class SideshiftAPI {
      * @param {number} amount - Deposit amout, Without specifying an amount, the system will assume a deposit value of 500 USD
      * @returns {Promise<PairData>} Pair data from API
      */
-    getPair(from: string, to: string, amount?: number | null): Promise<PairData>;
+    getPair(from: string, to: string, amount?: number | null, customCommissionRate?: string | null): Promise<PairData>;
     /**
      * Get multiple pairs
      * @param {string[]} arrayOfCoins - Array of coin: "name-network", "BNB-bsc" "BTC-mainnet"
      * @returns {Promise<PairData[]>} Pair data from API
      */
-    getPairs(arrayOfCoins: string[]): Promise<PairData[]>;
+    getPairs(arrayOfCoins: string[], customCommissionRate?: string | null): Promise<PairData[]>;
     /**
      * Get shift by ID
      * @param {string} shiftId - Shift ID
@@ -108,7 +114,7 @@ export declare class SideshiftAPI {
      * @param {string} [userIp] - User IP address (optional)
      * @returns {Promise<QuoteData>} Quote data from API
      */
-    requestQuote({ depositCoin, depositNetwork, settleCoin, settleNetwork, depositAmount, settleAmount, userIp }: RequestQuote): Promise<QuoteData>;
+    requestQuote({ depositCoin, depositNetwork, settleCoin, settleNetwork, depositAmount, settleAmount, userIp, customCommissionRate }: RequestQuote): Promise<QuoteData>;
     /**
      * Create a fixed shift
      * @param {Object} options - Configuration options
@@ -121,7 +127,7 @@ export declare class SideshiftAPI {
      * @param {string} [userIp] - User IP address (optional)
      * @returns {Promise<FixedShiftData>} Created shift data from API
      */
-    createFixedShift({ settleAddress, quoteId, settleMemo, refundAddress, refundMemo, externalId, userIp }: CreateFixedShift): Promise<FixedShiftData>;
+    createFixedShift({ settleAddress, quoteId, settleMemo, refundAddress, refundMemo, externalId, userIp, customCommissionRate }: CreateFixedShift): Promise<FixedShiftData>;
     /**
      * Create a variable shift
      * @param {Object} options - Configuration options
@@ -137,7 +143,7 @@ export declare class SideshiftAPI {
      * @param {string} [userIp] - User IP address (optional)
      * @returns {Promise<VariableShiftData>} Created shift data from API
      */
-    createVariableShift({ settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo, externalId, userIp }: CreateVariableShift): Promise<VariableShiftData>;
+    createVariableShift({ settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo, externalId, userIp, customCommissionRate }: CreateVariableShift): Promise<VariableShiftData>;
     /**
      * Set refund address for a shift
      * @param {Object} options - Configuration options
@@ -166,6 +172,5 @@ export declare class SideshiftAPI {
     * @param {string} [userIp] - User IP address (optional)
     * @returns {Promise<CheckoutData>} Checkout data from API
     */
-    createCheckout({ settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIp }: CreateCheckout): Promise<CheckoutData>;
+    createCheckout({ settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIp, customCommissionRate }: CreateCheckout): Promise<CheckoutData>;
 }
-//# sourceMappingURL=index.cjs.d.ts.map

@@ -1,8 +1,8 @@
 // const SideshiftAPI = require('./../dist/index.cjs');
 import { SideshiftAPI } from './../dist/index.js';
 
-const SIDESHIFT_ID = "KHSffx5pb";
-const SIDESHIFT_SECRET = "00443b224107297c9352d9948ec98443";
+const SIDESHIFT_ID = "SIDESHIFT_ID";
+const SIDESHIFT_SECRET = "SIDESHIFT_SECRET";
 const COMMISSION_RATE = "0.5"; // Min 0 and max 2, set your commission rate from 0 to 2%. Default: 0.5
 const RETRIES =  {
     maxRetries: 5,

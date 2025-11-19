@@ -16,4 +16,3 @@ export declare function _errorMsg(fieldName: string, source: string): string;
  * @returns {Error} Formatted error object
  */
 export declare function _createError(message: string, response: Response | null, url: string, options: any, errorData: any): Error;
-//# sourceMappingURL=error.d.ts.map

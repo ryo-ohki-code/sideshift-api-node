@@ -7,4 +7,3 @@ export interface RequestConfig {
     verbose: boolean;
     BASE_URL: string;
 }
-//# sourceMappingURL=requestConfig.d.ts.map

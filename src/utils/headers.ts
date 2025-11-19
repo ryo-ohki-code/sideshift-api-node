@@ -27,8 +27,3 @@ export const HEADER_WITH_TOKEN = (secret: string) => ({
     ...DEFAULT_HEADERS,
     "x-sideshift-secret": secret
 });
-
-export const HEADER_COMMISSION = (secret: string, commissionRate: string) => ({
-    ...HEADER_WITH_TOKEN(secret),
-    ...(commissionRate !== "0.5" && { commissionRate })
-});
