@@ -10,7 +10,7 @@ See the source documentation for detailed response json and examples: https://do
 Returns the list of coins and their respective networks available on [SideShift.ai](https://sideshift.ai/a/9iuC2qrEj).
 
 **Example Response:**
-```
+```json
 [ {
     "networks": [
       "avax"
@@ -43,7 +43,7 @@ Returns
 - Blob - Image data containing the coin icon in SVG or PNG format
 
 **How to Call it**
-```
+```javascript
 const coinIcon = await getCoinIcon('BTC-bitcoin');
 ```
 
@@ -54,12 +54,12 @@ const coinIcon = await getCoinIcon('BTC-bitcoin');
 Returns whether or not the user is allowed to create shifts on SideShift.ai. 
 
 **How to Call it**
-```
+```javascript
 const permission = await getPermissions();
 ```
 
 **Example Response:**
-```
+```json
 {
   "createShift": true
 }
@@ -75,14 +75,15 @@ Parameters
 - from (string) - Source currency code (e.g., 'ETH-ethereum')
 - to (string) - Target currency code (e.g., 'USDT-ethereum')
 - amount (number, optional) - Amount to convert (if specified, will adjust the rate more precisely)
+- customCommissionRate (string/number, optional) - '0.9'
 
 **How to Call it**
-```
-const getPair = await getPair();
+```javascript
+const getPair = await getPair(from, to, amount || null, customCommissionRate);
 ```
 
 **Example Response:**
-```
+```json
 {
   "min": "0.0.00010771",
   "max": "1.43608988",
@@ -102,9 +103,15 @@ Same as getPair but with multiple coins. Returns the minimum and maximum deposit
 
 Parameter
 - An array of coin (e.g., ['BTC-bitcoin', 'ETH-ethereum', 'BNB-bsc', ...])
+- customCommissionRate (string/number, optional) - '0.9'
+
+**How to Call it**
+```javascript
+const getPair = await getPairs(ArrayOfCoins, customCommissionRate);
+```
 
 **Example Response:**
-```
+```javascript
 [
   {
     depositCoin: 'BTC',
@@ -158,7 +165,7 @@ Parameter
 - limit (number, optionnal)
 
 **Example Response:**
-```
+```json
 [
   {
     "createdAt": "2023-10-17T06:48:18.622Z",
@@ -177,7 +184,7 @@ Parameter
 Returns the statistics about XAI coin, including it's current USD price.
 
 **Example Response:**
-```
+```json
 {
   "totalSupply": 210000000,
   "circulatingSupply": 126684969.93,
@@ -199,7 +206,7 @@ Returns the statistics about XAI coin, including it's current USD price.
 Returns the data related to an account. In order to get the data, send the account secret in the x-sideshift-secret header.
 
 **Example Response:**
-```
+```json
 {
   "id": "YQMi62XMb",
   "lifetimeStakingRewards": "89190.63",
@@ -215,7 +222,7 @@ Returns the data related to an account. In order to get the data, send the accou
 Returns the data of a checkout created using /v2/checkout endpoint.
 
 **Example Response:**
-```
+```json
 {
   "id": "32e676d3-56c2-4c06-a0cd-551a9d3db18b",
   "settleCoin": "XRP",
@@ -225,7 +232,7 @@ Returns the data of a checkout created using /v2/checkout endpoint.
   "settleAmount": "15",
   "updatedAt": "2024-09-26T01:52:56.885000000Z",
   "createdAt": "2024-09-26T01:52:56.885000000Z",
-  "affiliateId": "YQMi62XMb"
+  "affiliateId": "YQMi62XMb",
   "successUrl": "https://example.com/success",
   "cancelUrl": "https://example.com/cancel"
 }
@@ -235,11 +242,11 @@ Returns the data of a checkout created using /v2/checkout endpoint.
 
 ## POST function
 
-### requestQuote({depositCoin, depositNetwork, settleCoin, settleNetwork, depositAmount, settleAmount, userIp})
+### requestQuote({depositCoin, depositNetwork, settleCoin, settleNetwork, depositAmount, settleAmount, userIp, customCommissionRate})
 For fixed rate shifts, a quote should be requested first. A quote can be requested for either a depositAmount or a settleAmount.
 
 **How to Call it**
-```
+```javascript
 const quote = await client.requestQuote({
     depositCoin: 'BTC',
     depositNetwork: 'bitcoin',
@@ -247,12 +254,13 @@ const quote = await client.requestQuote({
     settleNetwork: 'ethereum',
     depositAmount: null,
     settleAmount: 2.3,
-    userIp: 'ip_address' // Optional
+    userIp: 'ip_address', // Optional
+    customCommissionRate: '0.4' // Optional
 });
 ```
 
 **Example response**
-```
+```json
 {
   "id": "c1d79240-0117-4867-afed-9cc4605c53aa",
   "createdAt": "2023-10-17T03:33:21.230Z",
@@ -268,11 +276,11 @@ const quote = await client.requestQuote({
 }
 ```
 
-### createFixedShift({settleAddress, quoteId, settleMemo, refundAddress, refundMemo, userIp})
+### createFixedShift({settleAddress, quoteId, settleMemo, refundAddress, refundMemo, userIp, customCommissionRate})
 After requesting a quote, use the quoteId to create a fixed rate shift with the quote. The affiliateId must match the one used to request the quote.
 
 **How to Call it**
-```
+```javascript
 const fixed_shift = await client.createFixedShift({
     settleAddress: '0x...',
     quoteId: 'quote123',
@@ -280,12 +288,13 @@ const fixed_shift = await client.createFixedShift({
     refundAddress: '0x...', // Optional
     refundMemo: 'WalletMemo', // Optional
     externalId: 'integration-1234', // Optional
-    userIp: 'ip_address' // Optional
+    userIp: 'ip_address', // Optional
+    customCommissionRate: '0.4' // Optional
 });
 ```
 
 **Example response**
-```
+```json
 {
   "id": "8c9ba87d02a801a2f254",
   "createdAt": "2023-10-17T04:32:00.855Z",
@@ -310,11 +319,11 @@ const fixed_shift = await client.createFixedShift({
 }
 ```
 
-### createVariableShift({settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo, userIp})
+### createVariableShift({settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo, userIp, customCommissionRate})
 For variable rate shifts, the settlement rate is determined when the user's deposit is received.
 
 **How to Call it**
-```
+```javascript
 const variable_shift = await client.createVariableShift({
     settleAddress: '0x...',
     settleCoin: 'ETH',
@@ -324,12 +333,13 @@ const variable_shift = await client.createVariableShift({
     refundAddress: '0x...', // Optional
     settleMemo: 'memo', // Optional
     externalId: 'integration-1234', // Optional
-    userIp: 'ip_address' // Optional
+    userIp: 'ip_address', // Optional
+    customCommissionRate: '0.4' // Optional
 });
 ```
 
 **Example response**
-```
+```json
 {
   "id": "71449070046fcfee010z",
   "createdAt": "2024-01-31T01:04:14.978Z",
@@ -358,16 +368,16 @@ const variable_shift = await client.createVariableShift({
 
 ### setRefundAddress({shiftId, refundAddress, refundMemo})
 **How to Call it**
-```
+```javascript
 const set_refund_address = await setRefundAddress({
   shiftId: '6f7d6442bbcea03b3fs6',
   refundAddress: 'bc1...9ya',
-  refundMemo: 'memo' // optional
+  refundMemo: 'memo' // Optional
 });
 ```
 
 **Example response**
-```
+```json
 {
   "id": "6f7d6442bbcea03b3fs6",
   "createdAt": "2023-10-17T05:36:46.797Z",
@@ -390,25 +400,25 @@ const set_refund_address = await setRefundAddress({
 
 ### cancelOrder(orderID)
 **How to Call it**
-```
+```javascript
 const cancel_shift = await cancelOrder('71449070046fcfee010z')
 ```
 
 **Example response**
-```
+```json
 {
   success: true,
   orderId: "71449070046fcfee010z"
 };
 ```
 
-### createCheckout({settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIp})
+### createCheckout({settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIp, customCommissionRate})
 Once you create a checkout you need to redirect customer to the payment page: https://pay.sideshift.ai/checkout/{checkout.id}
 
 See [SideShift Pay](https://pay.sideshift.ai/) for more information.
 
 **How to Call it**
-```
+```javascript
 const chechout = await client.createCheckout({
     settleCoin: 'ETH',
     settleNetwork: 'ethereum',
@@ -416,13 +426,14 @@ const chechout = await client.createCheckout({
     settleAddress: '0x...',
     successUrl: 'https://example.com/success',
     cancelUrl: 'https://example.com/cancel',
-    settleMemo: 'memo', // optional
-    userIp: 'ip_address' // optional
+    settleMemo: 'memo', // Optional
+    userIp: 'ip_address', // Optional
+    customCommissionRate: '0.4' // Optional
 });
 ```
 
 **Example response**
-```
+```json
 {
   "id": "32e676d3-56c2-4c06-a0cd-551a9d3db89a",
   "settleCoin": "XRP",
@@ -432,7 +443,7 @@ const chechout = await client.createCheckout({
   "settleAmount": "15",
   "updatedAt": "2024-09-26T01:52:56.885000000Z",
   "createdAt": "2024-09-26T01:52:56.885000000Z",
-  "affiliateId": "YQMi62XMb"
+  "affiliateId": "YQMi62XMb",
   "successUrl": "https://example.com/success",
   "cancelUrl": "https://example.com/cancel"
 }
