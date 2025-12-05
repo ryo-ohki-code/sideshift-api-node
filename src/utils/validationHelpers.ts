@@ -25,7 +25,8 @@ export function _validateString(value: any, paramName: string, functionName: str
  */
 export function _validateOptionalString(value: any, paramName: string, functionName: string): string | null | undefined {
     if (value && typeof value !== 'string') {
-        throw new Error(`Error from ${functionName}: Missing or invalid ${paramName} parameter`);
+        const error = _errorMsg(functionName, paramName)
+        throw new Error(`${error}`);
     }
     if (value === null || value === undefined) {
         return value;
@@ -35,18 +36,55 @@ export function _validateOptionalString(value: any, paramName: string, functionN
 }
 
 /**
+ * Sanitize a value to a number, returning null if conversion fails
+ * @param {number | string | null | undefined} input - The value to sanitize
+ * @returns {number | null} The sanitized number value, or null if conversion fails
+ */
+function sanitizeNumber(input: number | string | null | undefined): number | null {
+    if (!input) {
+        return null;
+    }
+
+    if (typeof input !== 'number') {
+        input = Number(input);
+    }
+
+    if (isNaN(input) || !isFinite(input)) {
+        return null;
+    }
+    return input;
+}
+
+/**
  * Validate that a value is a non-negative finite number
  * @param {*} value - The value to validate
  * @param {string} paramName - The name of the parameter being validated
  * @param {string} functionName - The name of the function where validation occurred
- * @returns {number|null} The valid number value, or null if not provided
+ * @returns {number} The valid number value, or null if not provided
  * @throws {Error} If the value is invalid
  */
-export function _validateNumber(value: any, paramName: string, functionName: string): number | null {
-    if (value !== null && (typeof value !== 'number' || value < 0 || !Number.isFinite(value))) {
-        throw new Error(`Error from ${functionName}: Missing or invalid ${paramName} parameter`);
+export function _validateNumber(value: number | string | null | undefined, paramName: string, functionName: string, isOptional: boolean = false): number | null {
+    if (!value) {
+        if(isOptional){
+            return null;
+        }else{
+        const error = _errorMsg(functionName, paramName)
+        throw new Error(`${error}`);
+
+        }
     }
-    return value;
+
+    const sanitizedValue = sanitizeNumber(value);
+
+    if (!sanitizedValue) {
+        return null;
+    }
+
+    if (sanitizedValue < 0) {
+        throw new Error(`Error from ${functionName}: ${paramName} parameter must be > 0`);
+    }
+
+    return sanitizedValue;
 }
 
 /**

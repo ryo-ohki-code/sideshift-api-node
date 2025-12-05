@@ -3,6 +3,7 @@ import { RequestConfig } from './../types/requestConfig';
 import { _handleResponse } from './responseHandler';
 import { _shouldRetry, _calculateBackoffDelay, _delay } from './retries';
 import { _errorMsg, _createError } from './error';
+import { BaseError } from './../types/error';
 
 let _retryDelay: number;
 let _retryBackoff: number;
@@ -112,7 +113,7 @@ export async function _request(url: string, options: any = {}, retries: number =
             }
         }
 
-        const error = _createError(`Fetch API error: ${err.error?.message || err.message || err}`,
+        const error: BaseError = _createError(`Fetch API error: ${err.error?.message || err.message || err}`,
             null,
             url,
             options,
@@ -151,7 +152,7 @@ export async function _requestImage(url: string, options: any = {}, retries: num
             }
             return await handledResponse.blob();
         } catch (e: any) {
-            const error = _createError(`Failed to process image response: ${e.message || e}`,
+            const error: BaseError = _createError(`Failed to process image response: ${e.message || e}`,
                 response,
                 url,
                 options,
@@ -182,7 +183,7 @@ export async function _requestImage(url: string, options: any = {}, retries: num
             return _requestImage(url, options, retries + 1);
         }
 
-        const error = _createError(`Fetch API image error: ${err.error?.message || err.message || err}`,
+        const error: BaseError = _createError(`Fetch API image error: ${err.error?.message || err.message || err}`,
             null,
             url,
             options,

@@ -48,14 +48,18 @@ export function _calculateBackoffDelay(
     maxRetries: number, 
     retryCappedDelay: number
 ): number {
+    if (retries < 0 || retryDelay <= 0 || retryBackoff < 1 || maxRetries < 0 || retryCappedDelay <= 0) {
+        throw new Error('Invalid input parameters');
+    }
+
     if (retries >= maxRetries) {
         return retryCappedDelay;
     }
 
     const baseDelay = Math.pow(retryBackoff, retries) * retryDelay;
-    const cappedBaseDelay = Math.min(baseDelay, retryCappedDelay);
-    const jitter = Math.floor(Math.random() * cappedBaseDelay * 0.2);
-    return cappedBaseDelay + jitter;
+    const cappedDelay = Math.min(baseDelay, retryCappedDelay);
+    const jitter = Math.floor(Math.random() * cappedDelay * 0.5);
+    return Math.max(0, cappedDelay + jitter);
 }
 
 /**
@@ -64,5 +68,9 @@ export function _calculateBackoffDelay(
  * @returns {Promise<void>} A promise that resolves after the specified delay
  */
 export function _delay(ms: number): Promise<void> {
+    if (ms < 0) {
+        return Promise.resolve();
+    }
+
     return new Promise(resolve => setTimeout(resolve, ms));
 }

@@ -38,7 +38,6 @@ import { _filterHeaders, DEFAULT_HEADERS, HEADER_WITH_TOKEN } from './utils/head
 import { _validateString, _validateOptionalString, _validateNumber, _validateArray } from './utils/validationHelpers';
 import { _request, _requestImage, _post, _get, _updateRequestConfig } from './utils/request';
 
-
 export class SideshiftAPI {
     private SIDESHIFT_ID: string;
     private COMMISSION_RATE: string;
@@ -81,9 +80,9 @@ export class SideshiftAPI {
 
         /** Max retries configurations */
         this.maxRetries = retries.maxRetries ?? 5;
-        this.retryDelay = retries.retryDelay ?? 2000; // 2 seconds
-        this.retryBackoff = retries.retryBackoff ?? 2; // exponential backoff multiplier
-        this.retryCappedDelay = retries.retryCappedDelay ?? 10000; // 10 seconds
+        this.retryDelay = retries.retryDelay || 2000; // 2 seconds
+        this.retryBackoff = retries.retryBackoff || 2; // exponential backoff multiplier
+        this.retryCappedDelay = retries.retryCappedDelay || 10000; // 10 seconds
 
         /** Verbose mode true/false */
         this.verbose = !!verbose;
@@ -126,7 +125,9 @@ export class SideshiftAPI {
      * @returns {boolean} True if the commission rate is a valid number between 0 and 2 (inclusive), false otherwise
      */
     _isValidCommissionRate = (commissionRate?: string | number | null): string | null => {
-        if (!commissionRate || commissionRate === '') return null;
+        if (commissionRate === null || commissionRate === undefined || commissionRate === '') {
+            return null;
+        }
 
         const num = Number(commissionRate);
 
@@ -146,7 +147,7 @@ export class SideshiftAPI {
      */
     private _getSpecialHeader(options?: { userIp?: string | null, customCommissionRate?: string | number | null }): Headers {
         const { userIp, customCommissionRate } = options || {};
-        const commissionRate = this._isValidCommissionRate(customCommissionRate) ?? this.COMMISSION_RATE;
+        const commissionRate: string | null = this._isValidCommissionRate(customCommissionRate) ?? this.COMMISSION_RATE;
 
         return {
             ...this.HEADER_WITH_TOKEN,
@@ -154,7 +155,6 @@ export class SideshiftAPI {
             ...(userIp && { "x-user-ip": userIp }),
         };
     }
-
 
     /** API functions - GET */
 
@@ -173,6 +173,7 @@ export class SideshiftAPI {
      */
     async getCoinIcon(coin: string): Promise<Blob | Object> {
         _validateString(coin, "coin", "getCoinIcon");
+
         return await _requestImage(`${this.BASE_URL}/coins/icon/${coin}`, this.imageHeader);
     }
 
@@ -194,13 +195,16 @@ export class SideshiftAPI {
     async getPair(from: string, to: string, amount?: number | null, customCommissionRate?: string | null): Promise<PairData> {
         _validateString(from, "from", "getPair");
         _validateString(to, "to", "getPair");
-        if (amount) _validateNumber(Number(amount), "amount", "getPair");
+        let cleanAmount: number | null = null;
+        if (amount) cleanAmount = _validateNumber(amount, "amount", "getPair");
 
         const queryParams = new URLSearchParams();
         queryParams.append('affiliateId', this.SIDESHIFT_ID);
-        if (amount) {
-            queryParams.append('amount', Number(amount).toString());
+
+        if (cleanAmount) {
+            queryParams.append('amount', Number(cleanAmount).toString());
         }
+
         return await _get(`${this.BASE_URL}/pair/${from}/${to}/?${queryParams}`, this._getSpecialHeader({ customCommissionRate }));
     }
 
@@ -211,10 +215,12 @@ export class SideshiftAPI {
      */
     async getPairs(arrayOfCoins: string[], customCommissionRate?: string | null): Promise<PairData[]> {
         _validateArray(arrayOfCoins, "arrayOfCoins", "getPairs", "string");
+
         const queryParams = new URLSearchParams({
             pairs: arrayOfCoins.join(','), // 'btc-mainnet,usdc-bsc,bch,eth'
             affiliateId: this.SIDESHIFT_ID,
         });
+
         return await _get(`${this.BASE_URL}/pairs?${queryParams}`, this._getSpecialHeader({ customCommissionRate }));
     }
 
@@ -225,6 +231,7 @@ export class SideshiftAPI {
      */
     async getShift(shiftId: string): Promise<ShiftData> {
         _validateString(shiftId, "shiftId", "getShift");
+
         return await _get(`${this.BASE_URL}/shifts/${shiftId}`, this.requestHeader);
     }
 
@@ -235,9 +242,11 @@ export class SideshiftAPI {
      */
     async getBulkShifts(arrayOfIds: string[]): Promise<ShiftData[]> {
         _validateArray(arrayOfIds, "arrayOfIds", "getBulkShifts", "string");
+
         const queryParams = new URLSearchParams({
             ids: arrayOfIds.join(',') // 'f173118220f1461841da,dda3867168da23927b62'
         });
+
         return await _get(`${this.BASE_URL}/shifts?${queryParams}`, this.requestHeader);
     }
 
@@ -248,10 +257,10 @@ export class SideshiftAPI {
      */
     async getRecentShifts(limit?: number): Promise<RecentShiftData[]> {
         if (limit) {
-            const limitNumber = Number(limit);
-            _validateNumber(limitNumber, "limit", "getRecentShifts");
-            const clampedLimit = Math.min(Math.max(limitNumber || 10, 1), 100);
+            const cleanedLimitNumber: number | null = _validateNumber(limit, "limit", "getRecentShifts");
+            const clampedLimit = Math.min(Math.max(cleanedLimitNumber || 10, 1), 100);
             const queryParams = new URLSearchParams({ limit: clampedLimit.toString() });
+
             return await _get(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
         } else {
             return await _get(`${this.BASE_URL}/recent-shifts`, this.requestHeader);
@@ -281,6 +290,7 @@ export class SideshiftAPI {
      */
     async getCheckout(checkoutId: string): Promise<CheckoutData> {
         _validateString(checkoutId, "checkoutId", "getCheckout");
+
         return await _get(`${this.BASE_URL}/checkout/${checkoutId}`, this.requestHeaderWithToken);
     }
 
@@ -313,8 +323,8 @@ export class SideshiftAPI {
         _validateString(depositNetwork, "depositNetwork", "requestQuote");
         _validateString(settleCoin, "settleCoin", "requestQuote");
         _validateString(settleNetwork, "settleNetwork", "requestQuote");
-        _validateNumber(depositAmount, "depositAmount", "requestQuote");
-        _validateNumber(settleAmount, "settleAmount", "requestQuote");
+        const cleanedDepositAmount: number | null = _validateNumber(depositAmount, "depositAmount", "requestQuote", true);
+        const cleanedSettleAmount: number | null = _validateNumber(settleAmount, "settleAmount", "requestQuote", true);
         _validateOptionalString(userIp, "userIp", "requestQuote");
         _validateOptionalString(customCommissionRate, "customCommissionRate", "requestQuote");
         const quoteBody = {
@@ -322,8 +332,8 @@ export class SideshiftAPI {
             depositNetwork,
             settleCoin,
             settleNetwork,
-            depositAmount,
-            settleAmount,
+            depositAmount: cleanedDepositAmount,
+            settleAmount: cleanedSettleAmount,
             "affiliateId": this.SIDESHIFT_ID
         };
 
@@ -497,7 +507,7 @@ export class SideshiftAPI {
     }: CreateCheckout): Promise<CheckoutData> {
         _validateString(settleCoin, "settleCoin", "createCheckout");
         _validateString(settleNetwork, "settleNetwork", "createCheckout");
-        _validateNumber(settleAmount, "settleAmount", "createCheckout");
+        const cleanedSettleAmount: number | null = _validateNumber(settleAmount, "settleAmount", "createCheckout");
         _validateString(settleAddress, "settleAddress", "createCheckout");
         _validateString(successUrl, "successUrl", "createCheckout");
         _validateString(cancelUrl, "cancelUrl", "createCheckout");
@@ -508,7 +518,7 @@ export class SideshiftAPI {
         const checkoutBody = {
             settleCoin,
             settleNetwork,
-            settleAmount,
+            settleAmount: cleanedSettleAmount,
             settleAddress,
             successUrl,
             cancelUrl,
@@ -520,4 +530,5 @@ export class SideshiftAPI {
     }
 }
 
+// for .ts file
 export { SideshiftAPI as default };

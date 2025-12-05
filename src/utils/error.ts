@@ -1,3 +1,5 @@
+import { BaseError } from './../types/error';
+
 /**
  * Generate an error message for missing or invalid parameters
  * @private
@@ -25,20 +27,16 @@ export function _createError(
     url: string,
     options: any,
     errorData: any
-): Error {
+): BaseError {
     const error = new Error(message);
     
     // Add additional properties to the error for better debugging
-    (error as any).status = response?.status;
-    (error as any).statusText = response?.statusText;
-    (error as any).url = url;
-    (error as any).options = options;
-    (error as any).error = errorData;
-    // optimized version
-    // (error as any).response = response;
-    // (error as any).url = url;
-    // (error as any).options = options;
-    // (error as any).errorData = errorData;
+    (error as BaseError).status = response?.status;
+    (error as BaseError).statusText = response?.statusText;
+    (error as BaseError).url = url;
+    (error as BaseError).options = options;
+    (error as BaseError).error = errorData;
+    (error as BaseError).response = response;
     
     return error;
 }

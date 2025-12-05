@@ -6,16 +6,23 @@
  * @returns {string} The filtered headers as a JSON string
  */
 function _filterHeaders(headers) {
-    if (!headers)
+    if (!headers || typeof headers !== 'object') {
         return 'None';
-    const filtered = { ...headers };
-    const sensitiveKeys = ['x-sideshift-secret']; // Array, if need to add more filter
-    for (const key of sensitiveKeys) {
-        if (filtered[key]) {
-            filtered[key] = '[FILTERED]';
-        }
     }
-    return JSON.stringify(filtered, null, 2);
+    try {
+        const filtered = { ...headers };
+        const sensitiveKeys = ['x-sideshift-secret']; // Array, if need to add more filter
+        for (const key of sensitiveKeys) {
+            if (filtered[key]) {
+                filtered[key] = '[FILTERED]';
+            }
+        }
+        return JSON.stringify(filtered, null, 2);
+    }
+    catch (error) {
+        console.error('Error filtering headers:', error);
+        return JSON.stringify({ error: 'Failed to filter headers' }, null, 2);
+    }
 }
 const DEFAULT_HEADERS = {
     "Content-Type": "application/json",
@@ -24,6 +31,38 @@ const HEADER_WITH_TOKEN = (secret) => ({
     ...DEFAULT_HEADERS,
     "x-sideshift-secret": secret
 });
+
+/**
+ * Generate an error message for missing or invalid parameters
+ * @private
+ * @param {string} fieldName - The name of the field that caused the error
+ * @param {string} source - The source where the error occurred
+ * @returns {string} The formatted error message
+ */
+function _errorMsg(fieldName, source) {
+    const error = `Error from ${source}: Missing or invalid ${fieldName} parameter`;
+    return error;
+}
+/**
+ * Create a formatted error object
+ * @param {string} message - Error message
+ * @param {Response|null} response - Response object if available
+ * @param {string} url - Request URL
+ * @param {Object} options - Request options
+ * @param {any} errorData - Additional error data
+ * @returns {Error} Formatted error object
+ */
+function _createError(message, response, url, options, errorData) {
+    const error = new Error(message);
+    // Add additional properties to the error for better debugging
+    error.status = response?.status;
+    error.statusText = response?.statusText;
+    error.url = url;
+    error.options = options;
+    error.error = errorData;
+    error.response = response;
+    return error;
+}
 
 /**
  * Validate that a value is a non-empty string
@@ -49,7 +88,8 @@ function _validateString(value, paramName, functionName) {
  */
 function _validateOptionalString(value, paramName, functionName) {
     if (value && typeof value !== 'string') {
-        throw new Error(`Error from ${functionName}: Missing or invalid ${paramName} parameter`);
+        const error = _errorMsg(functionName, paramName);
+        throw new Error(`${error}`);
     }
     if (value === null || value === undefined) {
         return value;
@@ -59,18 +99,48 @@ function _validateOptionalString(value, paramName, functionName) {
     }
 }
 /**
+ * Sanitize a value to a number, returning null if conversion fails
+ * @param {number | string | null | undefined} input - The value to sanitize
+ * @returns {number | null} The sanitized number value, or null if conversion fails
+ */
+function sanitizeNumber(input) {
+    if (!input) {
+        return null;
+    }
+    if (typeof input !== 'number') {
+        input = Number(input);
+    }
+    if (isNaN(input) || !isFinite(input)) {
+        return null;
+    }
+    return input;
+}
+/**
  * Validate that a value is a non-negative finite number
  * @param {*} value - The value to validate
  * @param {string} paramName - The name of the parameter being validated
  * @param {string} functionName - The name of the function where validation occurred
- * @returns {number|null} The valid number value, or null if not provided
+ * @returns {number} The valid number value, or null if not provided
  * @throws {Error} If the value is invalid
  */
-function _validateNumber(value, paramName, functionName) {
-    if (value !== null && (typeof value !== 'number' || value < 0 || !Number.isFinite(value))) {
-        throw new Error(`Error from ${functionName}: Missing or invalid ${paramName} parameter`);
+function _validateNumber(value, paramName, functionName, isOptional = false) {
+    if (!value) {
+        if (isOptional) {
+            return null;
+        }
+        else {
+            const error = _errorMsg(functionName, paramName);
+            throw new Error(`${error}`);
+        }
     }
-    return value;
+    const sanitizedValue = sanitizeNumber(value);
+    if (!sanitizedValue) {
+        return null;
+    }
+    if (sanitizedValue < 0) {
+        throw new Error(`Error from ${functionName}: ${paramName} parameter must be > 0`);
+    }
+    return sanitizedValue;
 }
 /**
  * Validate that a value is a non-empty array with specified element type
@@ -111,47 +181,18 @@ function _validateArrayElements(value, paramName, functionName, elementType = 's
 }
 
 /**
- * Generate an error message for missing or invalid parameters
- * @private
- * @param {string} fieldName - The name of the field that caused the error
- * @param {string} source - The source where the error occurred
- * @returns {string} The formatted error message
- */
-/**
- * Create a formatted error object
- * @param {string} message - Error message
- * @param {Response|null} response - Response object if available
- * @param {string} url - Request URL
- * @param {Object} options - Request options
- * @param {any} errorData - Additional error data
- * @returns {Error} Formatted error object
- */
-function _createError(message, response, url, options, errorData) {
-    const error = new Error(message);
-    // Add additional properties to the error for better debugging
-    error.status = response?.status;
-    error.statusText = response?.statusText;
-    error.url = url;
-    error.options = options;
-    error.error = errorData;
-    // optimized version
-    // (error as any).response = response;
-    // (error as any).url = url;
-    // (error as any).options = options;
-    // (error as any).errorData = errorData;
-    return error;
-}
-
-/**
  * Handle the API request
  * @private
  * @param {Object} response - Fetch response object
  * @param {string} url - The API endpoint URL
  * @param {Object} options - Fetch options
  * @returns {Promise<Object>} Resolves with the response object if successful
- * @throws {Error} Throws an error with HTTP status details and error data when response is not ok
+ * @throws {BaseError} Throws an error with HTTP status details and error data when response is not ok
  */
 async function _handleResponse(response, url, options, verbose) {
+    if (!response) {
+        throw new Error('Response is required');
+    }
     if (verbose) {
         console.log('\n=== DEBUG REQUEST ===');
         console.log('URL:', url);
@@ -165,12 +206,15 @@ async function _handleResponse(response, url, options, verbose) {
         try {
             errorData = await response.json();
         }
-        catch {
+        catch (jsonError) {
             try {
                 errorData = await response.text();
             }
-            catch {
-                errorData = { message: 'Failed to parse error details' };
+            catch (textError) {
+                errorData = {
+                    message: 'Failed to parse error details',
+                    originalError: jsonError || textError
+                };
             }
         }
         const error = _createError(`HTTP ${response?.status} ${response?.statusText}`, response, url, options, errorData.error || errorData);
@@ -218,13 +262,16 @@ function _shouldRetry(error) {
  * @returns {number} The calculated backoff delay in milliseconds
  */
 function _calculateBackoffDelay(retries, retryDelay, retryBackoff, maxRetries, retryCappedDelay) {
+    if (retries < 0 || retryDelay <= 0 || retryBackoff < 1 || maxRetries < 0 || retryCappedDelay <= 0) {
+        throw new Error('Invalid input parameters');
+    }
     if (retries >= maxRetries) {
         return retryCappedDelay;
     }
     const baseDelay = Math.pow(retryBackoff, retries) * retryDelay;
-    const cappedBaseDelay = Math.min(baseDelay, retryCappedDelay);
-    const jitter = Math.floor(Math.random() * cappedBaseDelay * 0.2);
-    return cappedBaseDelay + jitter;
+    const cappedDelay = Math.min(baseDelay, retryCappedDelay);
+    const jitter = Math.floor(Math.random() * cappedDelay * 0.5);
+    return Math.max(0, cappedDelay + jitter);
 }
 /**
  * Create a delay promise
@@ -232,6 +279,9 @@ function _calculateBackoffDelay(retries, retryDelay, retryBackoff, maxRetries, r
  * @returns {Promise<void>} A promise that resolves after the specified delay
  */
 function _delay(ms) {
+    if (ms < 0) {
+        return Promise.resolve();
+    }
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -439,9 +489,9 @@ class SideshiftAPI {
         this.COMMISSION_RATE = String(commissionRate);
         /** Max retries configurations */
         this.maxRetries = retries.maxRetries ?? 5;
-        this.retryDelay = retries.retryDelay ?? 2000; // 2 seconds
-        this.retryBackoff = retries.retryBackoff ?? 2; // exponential backoff multiplier
-        this.retryCappedDelay = retries.retryCappedDelay ?? 10000; // 10 seconds
+        this.retryDelay = retries.retryDelay || 2000; // 2 seconds
+        this.retryBackoff = retries.retryBackoff || 2; // exponential backoff multiplier
+        this.retryCappedDelay = retries.retryCappedDelay || 10000; // 10 seconds
         /** Verbose mode true/false */
         this.verbose = !!verbose;
         this.defaultTimeOut = 10000; // 10 seconds
@@ -474,8 +524,9 @@ class SideshiftAPI {
      * @returns {boolean} True if the commission rate is a valid number between 0 and 2 (inclusive), false otherwise
      */
     _isValidCommissionRate = (commissionRate) => {
-        if (!commissionRate || commissionRate === '')
+        if (commissionRate === null || commissionRate === undefined || commissionRate === '') {
             return null;
+        }
         const num = Number(commissionRate);
         // Check if it's a valid finite number between 0 and 2
         if (Number.isFinite(num) && num >= 0 && num <= 2) {
@@ -533,12 +584,13 @@ class SideshiftAPI {
     async getPair(from, to, amount, customCommissionRate) {
         _validateString(from, "from", "getPair");
         _validateString(to, "to", "getPair");
+        let cleanAmount = null;
         if (amount)
-            _validateNumber(Number(amount), "amount", "getPair");
+            cleanAmount = _validateNumber(amount, "amount", "getPair");
         const queryParams = new URLSearchParams();
         queryParams.append('affiliateId', this.SIDESHIFT_ID);
-        if (amount) {
-            queryParams.append('amount', Number(amount).toString());
+        if (cleanAmount) {
+            queryParams.append('amount', Number(cleanAmount).toString());
         }
         return await _get(`${this.BASE_URL}/pair/${from}/${to}/?${queryParams}`, this._getSpecialHeader({ customCommissionRate }));
     }
@@ -583,9 +635,8 @@ class SideshiftAPI {
      */
     async getRecentShifts(limit) {
         if (limit) {
-            const limitNumber = Number(limit);
-            _validateNumber(limitNumber, "limit", "getRecentShifts");
-            const clampedLimit = Math.min(Math.max(limitNumber || 10, 1), 100);
+            const cleanedLimitNumber = _validateNumber(limit, "limit", "getRecentShifts");
+            const clampedLimit = Math.min(Math.max(cleanedLimitNumber || 10, 1), 100);
             const queryParams = new URLSearchParams({ limit: clampedLimit.toString() });
             return await _get(`${this.BASE_URL}/recent-shifts?${queryParams}`, this.requestHeader);
         }
@@ -634,8 +685,8 @@ class SideshiftAPI {
         _validateString(depositNetwork, "depositNetwork", "requestQuote");
         _validateString(settleCoin, "settleCoin", "requestQuote");
         _validateString(settleNetwork, "settleNetwork", "requestQuote");
-        _validateNumber(depositAmount, "depositAmount", "requestQuote");
-        _validateNumber(settleAmount, "settleAmount", "requestQuote");
+        const cleanedDepositAmount = _validateNumber(depositAmount, "depositAmount", "requestQuote", true);
+        const cleanedSettleAmount = _validateNumber(settleAmount, "settleAmount", "requestQuote", true);
         _validateOptionalString(userIp, "userIp", "requestQuote");
         _validateOptionalString(customCommissionRate, "customCommissionRate", "requestQuote");
         const quoteBody = {
@@ -643,8 +694,8 @@ class SideshiftAPI {
             depositNetwork,
             settleCoin,
             settleNetwork,
-            depositAmount,
-            settleAmount,
+            depositAmount: cleanedDepositAmount,
+            settleAmount: cleanedSettleAmount,
             "affiliateId": this.SIDESHIFT_ID
         };
         return await _post(`${this.BASE_URL}/quotes`, this._getSpecialHeader({ userIp, customCommissionRate }), quoteBody);
@@ -768,7 +819,7 @@ class SideshiftAPI {
     async createCheckout({ settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIp, customCommissionRate }) {
         _validateString(settleCoin, "settleCoin", "createCheckout");
         _validateString(settleNetwork, "settleNetwork", "createCheckout");
-        _validateNumber(settleAmount, "settleAmount", "createCheckout");
+        const cleanedSettleAmount = _validateNumber(settleAmount, "settleAmount", "createCheckout");
         _validateString(settleAddress, "settleAddress", "createCheckout");
         _validateString(successUrl, "successUrl", "createCheckout");
         _validateString(cancelUrl, "cancelUrl", "createCheckout");
@@ -778,7 +829,7 @@ class SideshiftAPI {
         const checkoutBody = {
             settleCoin,
             settleNetwork,
-            settleAmount,
+            settleAmount: cleanedSettleAmount,
             settleAddress,
             successUrl,
             cancelUrl,
@@ -788,6 +839,7 @@ class SideshiftAPI {
         return await _post(`${this.BASE_URL}/checkout`, this._getSpecialHeader({ userIp, customCommissionRate }), checkoutBody);
     }
 }
+// for .cjs.ts file
 module.exports = SideshiftAPI;
 
 exports.SideshiftAPI = SideshiftAPI;
